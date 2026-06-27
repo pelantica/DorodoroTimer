@@ -1,12 +1,12 @@
 package com.tefumichangdev.dorodorotimer.domain.model
 
 /**
- * ポモドーロのプリセット。骨格では 25 分集中 + 5 分休憩のみ。
- * 将来は「25分の縛りが鬱陶しい」を改善する可変プリセットへ拡張予定。
+ * ポモドーロの時間設定（秒ベース）。テンキーで任意設定し DataStore に永続化する。
+ * 既定は 25 分集中 + 5 分休憩。
  */
 data class PomodoroPreset(
-    val focusMinutes: Int = 25,
-    val breakMinutes: Int = 5,
+    val focusSeconds: Int = 25 * 60,
+    val breakSeconds: Int = 5 * 60,
 ) {
     companion object {
         val Default = PomodoroPreset()

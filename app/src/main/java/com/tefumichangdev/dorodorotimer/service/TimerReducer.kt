@@ -8,8 +8,8 @@ import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
 object TimerReducer {
 
     fun secondsFor(preset: PomodoroPreset, phase: TimerPhase): Int = when (phase) {
-        TimerPhase.FOCUS -> preset.focusMinutes * 60
-        TimerPhase.BREAK -> preset.breakMinutes * 60
+        TimerPhase.FOCUS -> preset.focusSeconds
+        TimerPhase.BREAK -> preset.breakSeconds
     }
 
     /** 1秒進める。停止中はそのまま。0到達でフェーズ遷移し停止状態の新フェーズ初期値を返す。 */

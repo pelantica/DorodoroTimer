@@ -45,4 +45,20 @@ class TimerReducerTest {
         assertEquals(25 * 60, next.remainingSeconds)
         assertFalse(next.isRunning)
     }
+
+    @Test
+    fun secondsFor_withCustomPreset_returnsConfiguredSeconds() {
+        val custom = PomodoroPreset(focusSeconds = 30, breakSeconds = 10)
+        assertEquals(30, TimerReducer.secondsFor(custom, TimerPhase.FOCUS))
+        assertEquals(10, TimerReducer.secondsFor(custom, TimerPhase.BREAK))
+    }
+
+    @Test
+    fun advanceOneSecond_focusZero_withCustomPreset_usesCustomBreakSeconds() {
+        val custom = PomodoroPreset(focusSeconds = 30, breakSeconds = 10)
+        val state = TimerUiState(TimerPhase.FOCUS, 1, isRunning = true)
+        val next = TimerReducer.advanceOneSecond(state, custom)
+        assertEquals(TimerPhase.BREAK, next.phase)
+        assertEquals(10, next.remainingSeconds)
+    }
 }
