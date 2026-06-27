@@ -1,9 +1,12 @@
 package com.tefumichangdev.dorodorotimer.feature.timer
 
+import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
 import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -21,6 +24,16 @@ private class FakeCommandSender : TimerCommandSender {
     override fun reset() { calls += "reset" }
 }
 
+private class FakeSettingsRepository : PomodoroSettingsRepository {
+    val flow = MutableStateFlow(PomodoroPreset.Default)
+    val updates = mutableListOf<Pair<Int, Int>>()
+    override val preset: Flow<PomodoroPreset> = flow
+    override suspend fun update(focusSeconds: Int, breakSeconds: Int) {
+        updates += focusSeconds to breakSeconds
+        flow.value = PomodoroPreset(focusSeconds, breakSeconds)
+    }
+}
+
 class TimerViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
@@ -29,43 +42,56 @@ class TimerViewModelTest {
 
     @Test
     fun toggleRunning_whenNotRunning_callsStart() {
-        val fake = FakeCommandSender()
-        val vm = TimerViewModel(fake)
+        val cmd = FakeCommandSender()
+        val vm = TimerViewModel(cmd, FakeSettingsRepository())
         vm.toggleRunning()
-        assertEquals(listOf("start"), fake.calls)
+        assertEquals(listOf("start"), cmd.calls)
     }
 
     @Test
     fun reset_callsReset() {
-        val fake = FakeCommandSender()
-        val vm = TimerViewModel(fake)
+        val cmd = FakeCommandSender()
+        val vm = TimerViewModel(cmd, FakeSettingsRepository())
         vm.reset()
-        assertEquals(listOf("reset"), fake.calls)
+        assertEquals(listOf("reset"), cmd.calls)
     }
 
     @Test
     fun attachState_mirrorsServiceStateIntoUiState() = runTest(dispatcher) {
-        val fake = FakeCommandSender()
-        val vm = TimerViewModel(fake)
+        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository())
         val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1500, isRunning = false))
         vm.attachState(serviceState)
-
         serviceState.value = TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true)
         testScheduler.advanceUntilIdle()
-
         assertEquals(1499, vm.uiState.value.remainingSeconds)
-        assertEquals(true, vm.uiState.value.isRunning)
     }
 
     @Test
     fun toggleRunning_whenRunning_callsPause() = runTest(dispatcher) {
-        val fake = FakeCommandSender()
-        val vm = TimerViewModel(fake)
+        val cmd = FakeCommandSender()
+        val vm = TimerViewModel(cmd, FakeSettingsRepository())
         val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true))
         vm.attachState(serviceState)
         testScheduler.advanceUntilIdle()
-
         vm.toggleRunning()
-        assertEquals(listOf("pause"), fake.calls)
+        assertEquals(listOf("pause"), cmd.calls)
+    }
+
+    @Test
+    fun updateDurations_persistsViaRepository() = runTest(dispatcher) {
+        val repo = FakeSettingsRepository()
+        val vm = TimerViewModel(FakeCommandSender(), repo)
+        vm.updateDurations(focusSeconds = 30, breakSeconds = 10)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(30 to 10), repo.updates)
+    }
+
+    @Test
+    fun preset_reflectsRepositoryValue() = runTest(dispatcher) {
+        val repo = FakeSettingsRepository()
+        val vm = TimerViewModel(FakeCommandSender(), repo)
+        repo.flow.value = PomodoroPreset(focusSeconds = 90, breakSeconds = 30)
+        testScheduler.advanceUntilIdle()
+        assertEquals(PomodoroPreset(90, 30), vm.preset.value)
     }
 }

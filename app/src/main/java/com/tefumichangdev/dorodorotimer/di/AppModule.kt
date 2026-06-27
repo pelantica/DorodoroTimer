@@ -25,7 +25,7 @@ val appModule = module {
     }
     single { get<AppDatabase>().focusSessionDao() }
 
-    viewModel { TimerViewModel(get()) }
+    viewModel { TimerViewModel(get(), get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。
