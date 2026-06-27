@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -86,13 +90,29 @@ fun TimerScreen(
         }
     }
 
+    val preset by viewModel.preset.collectAsState()
+    var showPicker by remember { mutableStateOf(false) }
+
     val state by viewModel.uiState.collectAsState()
     TimerContent(
         state = state,
         modifier = modifier,
         onToggle = viewModel::toggleRunning,
         onReset = viewModel::reset,
+        onEditTime = { showPicker = true },
     )
+
+    if (showPicker) {
+        DurationPickerDialog(
+            initialFocusSeconds = preset.focusSeconds,
+            initialBreakSeconds = preset.breakSeconds,
+            onConfirm = { focus, brk ->
+                viewModel.updateDurations(focus, brk)
+                showPicker = false
+            },
+            onDismiss = { showPicker = false },
+        )
+    }
 }
 
 @Composable
@@ -101,6 +121,7 @@ private fun TimerContent(
     modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     onReset: () -> Unit,
+    onEditTime: () -> Unit,
 ) {
     Column(
         modifier = modifier.padding(24.dp),
@@ -112,7 +133,11 @@ private fun TimerContent(
             TimerPhase.BREAK -> stringResource(R.string.timer_phase_break)
         }
         Text(text = phaseLabel, style = MaterialTheme.typography.titleMedium)
-        Text(text = formatTime(state.remainingSeconds), style = MaterialTheme.typography.displayLarge)
+        Text(
+            text = formatTime(state.remainingSeconds),
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.clickable(enabled = !state.isRunning) { onEditTime() },
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = onToggle) {
                 Text(

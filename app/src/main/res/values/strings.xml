@@ -23,4 +23,12 @@
     <!-- settings -->
     <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
     <string name="settings_demo_mode_desc">ONにすると、わざとANRを誘発する実装経路を通る。登壇デモ用。リリースでは常にOFF。</string>
+
+    <!-- duration picker dialog -->
+    <string name="duration_dialog_title">時間を設定</string>
+    <string name="duration_target_focus">集中</string>
+    <string name="duration_target_break">休憩</string>
+    <string name="duration_delete">削除</string>
+    <string name="duration_confirm">決定</string>
+    <string name="duration_cancel">キャンセル</string>
 </resources>
