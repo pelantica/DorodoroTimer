@@ -48,10 +48,8 @@ class TimerForegroundService : Service() {
         scope.launch {
             settings.preset.collect { preset ->
                 currentPreset = preset
-                // 停止中のときだけ、待機表示を新しい設定に追従させる
-                if (!_state.value.isRunning) {
-                    _state.update { it.copy(remainingSeconds = TimerReducer.secondsFor(preset, it.phase)) }
-                }
+                // 停止中のときだけ、待機表示を新しい設定に追従させる（原子化）
+                _state.update { if (it.isRunning) it else it.copy(remainingSeconds = TimerReducer.secondsFor(preset, it.phase)) }
             }
         }
     }
