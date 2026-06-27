@@ -1,0 +1,18 @@
+-- SQLDelight: 「ライブラリがスレッドを管理してくれない」側の対比に使う日次統計。
+-- 生成された selectAll/upsert はデフォルトで呼び出しスレッドで同期実行される。
+-- → メインスレッドで呼ぶと普通にブロックする（事例① の正体）。実装時に demoMode で対比する。
+
+CREATE TABLE dailyStat (
+    day TEXT NOT NULL PRIMARY KEY,
+    focusCount INTEGER NOT NULL DEFAULT 0,
+    totalFocusSeconds INTEGER NOT NULL DEFAULT 0
+);
+
+selectAll:
+SELECT *
+FROM dailyStat
+ORDER BY day DESC;
+
+upsert:
+INSERT OR REPLACE INTO dailyStat(day, focusCount, totalFocusSeconds)
+VALUES (?, ?, ?);
