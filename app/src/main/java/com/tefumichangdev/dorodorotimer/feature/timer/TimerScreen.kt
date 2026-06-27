@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tefumichangdev.dorodorotimer.R
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
+import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

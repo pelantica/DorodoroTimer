@@ -4,18 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
+import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-data class TimerUiState(
-    val phase: TimerPhase = TimerPhase.FOCUS,
-    val remainingSeconds: Int = PomodoroPreset.Default.focusMinutes * 60,
-    val isRunning: Boolean = false,
-)
 
 /**
  * 骨格の最小タイマー。カウントダウンは viewModelScope のコルーチンで回す。
