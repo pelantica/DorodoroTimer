@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -70,11 +71,11 @@ class TimerForegroundService : Service() {
 
     private fun startCountdown() {
         if (tickJob?.isActive == true) return
-        _state.value = _state.value.copy(isRunning = true)
+        _state.update { it.copy(isRunning = true) }
         tickJob = scope.launch {
             while (_state.value.isRunning && _state.value.remainingSeconds > 0) {
                 delay(1000)
-                _state.value = TimerReducer.advanceOneSecond(_state.value, preset)
+                _state.update { TimerReducer.advanceOneSecond(it, preset) }
                 updateNotification()
             }
             // 0到達でフェーズ遷移＆停止 → 常駐解除
@@ -85,18 +86,19 @@ class TimerForegroundService : Service() {
 
     private fun pauseCountdown() {
         tickJob?.cancel()
-        _state.value = _state.value.copy(isRunning = false)
+        _state.update { it.copy(isRunning = false) }
         updateNotification()
     }
 
     private fun resetCountdown() {
         tickJob?.cancel()
-        val phase = _state.value.phase
-        _state.value = TimerUiState(
-            phase = phase,
-            remainingSeconds = TimerReducer.secondsFor(preset, phase),
-            isRunning = false,
-        )
+        _state.update { current ->
+            TimerUiState(
+                phase = current.phase,
+                remainingSeconds = TimerReducer.secondsFor(preset, current.phase),
+                isRunning = false,
+            )
+        }
         updateNotification()
     }
 
