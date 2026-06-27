@@ -7,6 +7,7 @@ import android.os.IBinder
 import android.util.Log
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,7 +27,8 @@ import org.koin.android.ext.android.inject
  */
 class TimerForegroundService : Service() {
 
-    private val preset: PomodoroPreset by inject()
+    private val settings: PomodoroSettingsRepository by inject()
+    @Volatile private var currentPreset: PomodoroPreset = PomodoroPreset.Default
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var tickJob: Job? = null
@@ -43,6 +45,15 @@ class TimerForegroundService : Service() {
         super.onCreate()
         Log.d(TAG, "onCreate")
         TimerNotifications.ensureChannel(this)
+        scope.launch {
+            settings.preset.collect { preset ->
+                currentPreset = preset
+                // 停止中のときだけ、待機表示を新しい設定に追従させる
+                if (!_state.value.isRunning) {
+                    _state.update { it.copy(remainingSeconds = TimerReducer.secondsFor(preset, it.phase)) }
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -75,7 +86,7 @@ class TimerForegroundService : Service() {
         tickJob = scope.launch {
             while (_state.value.isRunning && _state.value.remainingSeconds > 0) {
                 delay(1000)
-                _state.update { TimerReducer.advanceOneSecond(it, preset) }
+                _state.update { TimerReducer.advanceOneSecond(it, currentPreset) }
                 updateNotification()
             }
             // 0到達でフェーズ遷移＆停止 → 常駐解除
@@ -95,7 +106,7 @@ class TimerForegroundService : Service() {
         _state.update { current ->
             TimerUiState(
                 phase = current.phase,
-                remainingSeconds = TimerReducer.secondsFor(preset, current.phase),
+                remainingSeconds = TimerReducer.secondsFor(currentPreset, current.phase),
                 isRunning = false,
             )
         }
