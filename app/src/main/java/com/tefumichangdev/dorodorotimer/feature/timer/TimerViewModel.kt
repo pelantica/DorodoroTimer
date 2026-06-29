@@ -3,11 +3,16 @@ package com.tefumichangdev.dorodorotimer.feature.timer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
+import com.tefumichangdev.dorodorotimer.domain.model.TimerState
 import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
+import com.tefumichangdev.dorodorotimer.domain.model.isRunning
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
-import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
+import com.tefumichangdev.dorodorotimer.service.TimerReducer
+import com.tefumichangdev.dorodorotimer.service.TimerScheduler
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,14 +21,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 薄い仲介。カウントダウンの真実の源は TimerForegroundService 側。
- * 設定（時間）の保存は PomodoroSettingsRepository へ委譲し、現在値は preset で公開する。
+ * タイマーの真実は TimerState（runningUntilEpochMs）。VMは
+ * start/pause/reset で状態を更新し、AlarmManager(TimerScheduler)に終了時刻を予約、
+ * 実行中だけ毎秒 uiState を end-now から再計算する。常駐Serviceは持たない。
  */
 class TimerViewModel(
-    private val commands: TimerCommandSender,
     private val settings: PomodoroSettingsRepository,
+    private val timerStateRepo: TimerStateRepository,
+    private val scheduler: TimerScheduler,
     private val ambientSound: AmbientSoundController,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
+
+    private var timerState = TimerState()
+    private var currentPreset: PomodoroPreset = PomodoroPreset.Default
 
     private val _uiState = MutableStateFlow(TimerUiState())
     val uiState: StateFlow<TimerUiState> = _uiState.asStateFlow()
@@ -34,36 +45,96 @@ class TimerViewModel(
         initialValue = PomodoroPreset.Default,
     )
 
-    private var attachJob: Job? = null
+    val isSoundPlaying: StateFlow<Boolean> = ambientSound.isPlaying
 
-    fun attachState(serviceState: StateFlow<TimerUiState>) {
-        attachJob?.cancel()
-        attachJob = viewModelScope.launch {
-            serviceState.collect { _uiState.value = it }
+    private var tickJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            timerState = timerStateRepo.load()
+            // 閉じている間に終わっていたら（実行中だが既に0）フェーズを送って停止に確定
+            if (timerState.isRunning && TimerReducer.displaySeconds(timerState, now()) <= 0) {
+                timerState = TimerReducer.onFinished(timerState, currentPreset)
+                persist()
+            }
+            refreshUi()
+            if (timerState.isRunning) startTicking()
+        }
+        // 設定変更を購読：停止中なら残り秒を新フェーズ初期値に追従
+        viewModelScope.launch {
+            settings.preset.collect { p ->
+                currentPreset = p
+                if (!timerState.isRunning) {
+                    timerState = timerState.copy(remainingSeconds = TimerReducer.secondsFor(p, timerState.phase))
+                    persist()
+                    refreshUi()
+                }
+            }
         }
     }
 
-    fun detachState() {
-        attachJob?.cancel()
-        attachJob = null
+    fun toggleRunning() {
+        if (timerState.isRunning) pause() else start()
     }
 
-    fun toggleRunning() {
-        if (_uiState.value.isRunning) commands.pause() else commands.start()
+    private fun start() {
+        timerState = TimerReducer.start(timerState, now())
+        scheduler.schedule(timerState.runningUntilEpochMs!!)
+        persist()
+        refreshUi()
+        startTicking()
+    }
+
+    private fun pause() {
+        tickJob?.cancel()
+        scheduler.cancel()
+        timerState = TimerReducer.pause(timerState, now())
+        persist()
+        refreshUi()
     }
 
     fun reset() {
-        commands.reset()
+        tickJob?.cancel()
+        scheduler.cancel()
+        timerState = TimerReducer.reset(timerState, currentPreset)
+        persist()
+        refreshUi()
     }
 
     fun updateDurations(focusSeconds: Int, breakSeconds: Int) {
         viewModelScope.launch { settings.update(focusSeconds, breakSeconds) }
     }
 
-    /** 雨音（環境音）の再生状態。トグルで ON/OFF。 */
-    val isSoundPlaying: StateFlow<Boolean> = ambientSound.isPlaying
-
     fun toggleSound() {
         ambientSound.toggle()
+    }
+
+    private fun startTicking() {
+        tickJob?.cancel()
+        tickJob = viewModelScope.launch {
+            while (timerState.isRunning) {
+                if (TimerReducer.displaySeconds(timerState, now()) <= 0) {
+                    // 0到達：フェーズを送って停止（通知はReceiver側が出す）
+                    timerState = TimerReducer.onFinished(timerState, currentPreset)
+                    persist()
+                    refreshUi()
+                    break
+                }
+                refreshUi()
+                delay(1000)
+            }
+        }
+    }
+
+    private fun refreshUi() {
+        _uiState.value = TimerUiState(
+            phase = timerState.phase,
+            remainingSeconds = TimerReducer.displaySeconds(timerState, now()),
+            isRunning = timerState.isRunning,
+        )
+    }
+
+    private fun persist() {
+        viewModelScope.launch { timerStateRepo.save(timerState) }
     }
 }

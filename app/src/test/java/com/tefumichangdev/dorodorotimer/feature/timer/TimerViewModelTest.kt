@@ -2,10 +2,11 @@ package com.tefumichangdev.dorodorotimer.feature.timer
 
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
-import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
+import com.tefumichangdev.dorodorotimer.domain.model.TimerState
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
-import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
+import com.tefumichangdev.dorodorotimer.service.TimerScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,18 +17,12 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-private class FakeCommandSender : TimerCommandSender {
-    val calls = mutableListOf<String>()
-    override fun start() { calls += "start" }
-    override fun pause() { calls += "pause" }
-    override fun reset() { calls += "reset" }
-}
-
 private class FakeSettingsRepository : PomodoroSettingsRepository {
-    val flow = MutableStateFlow(PomodoroPreset.Default)
+    val flow = MutableStateFlow(PomodoroPreset(focusSeconds = 1500, breakSeconds = 300))
     val updates = mutableListOf<Pair<Int, Int>>()
     override val preset: Flow<PomodoroPreset> = flow
     override suspend fun update(focusSeconds: Int, breakSeconds: Int) {
@@ -36,82 +31,117 @@ private class FakeSettingsRepository : PomodoroSettingsRepository {
     }
 }
 
+private class FakeTimerStateRepository(initial: TimerState = TimerState()) : TimerStateRepository {
+    var stored: TimerState = initial
+    val saves = mutableListOf<TimerState>()
+    override suspend fun load(): TimerState = stored
+    override suspend fun save(state: TimerState) { stored = state; saves += state }
+}
+
+private class FakeTimerScheduler : TimerScheduler {
+    val scheduledAt = mutableListOf<Long>()
+    var cancelCount = 0
+    override fun schedule(endAtEpochMs: Long) { scheduledAt += endAtEpochMs }
+    override fun cancel() { cancelCount++ }
+}
+
 private class FakeAmbientSoundController : AmbientSoundController {
-    private val flow = MutableStateFlow(false)
-    override val isPlaying: StateFlow<Boolean> = flow
-    override fun toggle() { flow.value = !flow.value }
-    override fun play() { flow.value = true }
-    override fun stop() { flow.value = false }
+    private val f = MutableStateFlow(false)
+    override val isPlaying: StateFlow<Boolean> = f
+    override fun toggle() { f.value = !f.value }
+    override fun play() { f.value = true }
+    override fun stop() { f.value = false }
 }
 
 class TimerViewModelTest {
     private val dispatcher = StandardTestDispatcher()
+    private var fixedNow = 10_000L
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
 
-    @Test
-    fun toggleRunning_whenNotRunning_callsStart() {
-        val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
-        vm.toggleRunning()
-        assertEquals(listOf("start"), cmd.calls)
-    }
+    private fun vm(
+        settings: FakeSettingsRepository = FakeSettingsRepository(),
+        timer: FakeTimerStateRepository = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 1500, runningUntilEpochMs = null)
+        ),
+        scheduler: FakeTimerScheduler = FakeTimerScheduler(),
+    ) = TimerViewModel(settings, timer, scheduler, FakeAmbientSoundController(), now = { fixedNow })
 
     @Test
-    fun reset_callsReset() {
-        val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
-        vm.reset()
-        assertEquals(listOf("reset"), cmd.calls)
-    }
-
-    @Test
-    fun attachState_mirrorsServiceStateIntoUiState() = runTest(dispatcher) {
-        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository(), FakeAmbientSoundController())
-        val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1500, isRunning = false))
-        vm.attachState(serviceState)
-        serviceState.value = TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true)
+    fun toggleRunning_whenStopped_schedulesAndMarksRunning() = runTest(dispatcher) {
+        val scheduler = FakeTimerScheduler()
+        val timer = FakeTimerStateRepository(TimerState(remainingSeconds = 90))
+        val viewModel = vm(timer = timer, scheduler = scheduler)
         testScheduler.advanceUntilIdle()
-        assertEquals(1499, vm.uiState.value.remainingSeconds)
-    }
-
-    @Test
-    fun toggleRunning_whenRunning_callsPause() = runTest(dispatcher) {
-        val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
-        val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true))
-        vm.attachState(serviceState)
+        viewModel.toggleRunning()
         testScheduler.advanceUntilIdle()
-        vm.toggleRunning()
-        assertEquals(listOf("pause"), cmd.calls)
+        assertEquals(listOf(10_000L + 90_000L), scheduler.scheduledAt) // now + 90s
+        assertTrue(viewModel.uiState.value.isRunning)
+        assertEquals(90, viewModel.uiState.value.remainingSeconds) // end - now
     }
 
     @Test
-    fun updateDurations_persistsViaRepository() = runTest(dispatcher) {
-        val repo = FakeSettingsRepository()
-        val vm = TimerViewModel(FakeCommandSender(), repo, FakeAmbientSoundController())
-        vm.updateDurations(focusSeconds = 30, breakSeconds = 10)
+    fun toggleRunning_whenRunning_cancelsAndStoresRemaining() = runTest(dispatcher) {
+        val scheduler = FakeTimerScheduler()
+        val timer = FakeTimerStateRepository(
+            TimerState(remainingSeconds = 0, runningUntilEpochMs = 100_000L) // 90s left at now=10000
+        )
+        val viewModel = vm(timer = timer, scheduler = scheduler)
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(30 to 10), repo.updates)
-    }
-
-    @Test
-    fun preset_reflectsRepositoryValue() = runTest(dispatcher) {
-        val repo = FakeSettingsRepository()
-        val vm = TimerViewModel(FakeCommandSender(), repo, FakeAmbientSoundController())
-        repo.flow.value = PomodoroPreset(focusSeconds = 90, breakSeconds = 30)
+        viewModel.toggleRunning()
         testScheduler.advanceUntilIdle()
-        assertEquals(PomodoroPreset(90, 30), vm.preset.value)
+        assertEquals(1, scheduler.cancelCount)
+        assertEquals(false, viewModel.uiState.value.isRunning)
+        assertEquals(90, viewModel.uiState.value.remainingSeconds)
     }
 
     @Test
-    fun toggleSound_flipsIsSoundPlaying() {
-        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository(), FakeAmbientSoundController())
-        assertEquals(false, vm.isSoundPlaying.value)
-        vm.toggleSound()
-        assertEquals(true, vm.isSoundPlaying.value)
-        vm.toggleSound()
-        assertEquals(false, vm.isSoundPlaying.value)
+    fun reset_cancelsAndRestoresPhaseSeconds() = runTest(dispatcher) {
+        val scheduler = FakeTimerScheduler()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 30, runningUntilEpochMs = 100_000L)
+        )
+        val viewModel = vm(timer = timer, scheduler = scheduler)
+        testScheduler.advanceUntilIdle()
+        viewModel.reset()
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, scheduler.cancelCount)
+        assertEquals(1500, viewModel.uiState.value.remainingSeconds) // focus default in fake settings
+        assertEquals(false, viewModel.uiState.value.isRunning)
+    }
+
+    @Test
+    fun init_whenRunningButAlreadyExpired_appliesFinishedAndStops() = runTest(dispatcher) {
+        // 終了時刻が過去（閉じている間に終わった）→ ロード時に onFinished が適用される
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 0, runningUntilEpochMs = 5_000L)
+        )
+        val viewModel = vm(timer = timer)
+        testScheduler.advanceUntilIdle()
+        assertEquals(TimerPhase.BREAK, viewModel.uiState.value.phase)
+        assertEquals(false, viewModel.uiState.value.isRunning)
+        assertEquals(300, viewModel.uiState.value.remainingSeconds)
+    }
+
+    @Test
+    fun updateDurations_persistsViaSettings() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val viewModel = vm(settings = settings)
+        testScheduler.advanceUntilIdle()
+        viewModel.updateDurations(focusSeconds = 60, breakSeconds = 30)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(60 to 30), settings.updates)
+    }
+
+    @Test
+    fun presetChange_whileStopped_updatesRemaining() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val timer = FakeTimerStateRepository(TimerState(TimerPhase.FOCUS, remainingSeconds = 1500))
+        val viewModel = vm(settings = settings, timer = timer)
+        testScheduler.advanceUntilIdle()
+        settings.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
+        testScheduler.advanceUntilIdle()
+        assertEquals(100, viewModel.uiState.value.remainingSeconds)
     }
 }
