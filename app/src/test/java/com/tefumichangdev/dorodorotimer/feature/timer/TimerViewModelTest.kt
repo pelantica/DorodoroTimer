@@ -148,4 +148,42 @@ class TimerViewModelTest {
         testScheduler.runCurrent()
         assertEquals(100, viewModel.uiState.value.remainingSeconds)
     }
+
+    @Test
+    fun tick_running_decrementsThenFinishesToBreakStopped() = runTest(dispatcher) {
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 2, runningUntilEpochMs = null)
+        )
+        val viewModel = vm(timer = timer)
+        testScheduler.runCurrent()
+        viewModel.toggleRunning() // start: end = 10000 + 2*1000 = 12000
+        testScheduler.runCurrent()
+        assertEquals(2, viewModel.uiState.value.remainingSeconds)
+
+        fixedNow = 11_000L
+        testScheduler.advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertEquals(1, viewModel.uiState.value.remainingSeconds)
+
+        fixedNow = 12_000L
+        testScheduler.advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertEquals(TimerPhase.BREAK, viewModel.uiState.value.phase)
+        assertEquals(false, viewModel.uiState.value.isRunning)
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun presetChange_whilePausedPartial_doesNotClobberRemaining() = runTest(dispatcher) {
+        val settings = FakeSettingsRepository()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 90, runningUntilEpochMs = null)
+        )
+        val viewModel = vm(settings = settings, timer = timer)
+        testScheduler.runCurrent()
+        assertEquals(90, viewModel.uiState.value.remainingSeconds) // 初回emissionで巻き戻らない
+        settings.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
+        testScheduler.runCurrent()
+        assertEquals(90, viewModel.uiState.value.remainingSeconds) // partialは維持
+    }
 }

@@ -2,10 +2,6 @@
     <string name="app_name">Dorodoro Timer</string>
 
     <!-- timer -->
-    <string name="timer_notification_channel_name">タイマー実行中</string>
-    <string name="timer_notification_title">DorodoroTimer</string>
-    <string name="timer_notification_focus">集中中</string>
-    <string name="timer_notification_break">休憩中</string>
     <string name="timer_start">開始</string>
     <string name="timer_pause">一時停止</string>
     <string name="timer_reset">リセット</string>
