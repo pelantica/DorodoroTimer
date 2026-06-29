@@ -143,7 +143,10 @@ class AmbientSoundService : Service() {
                         CHANNEL_ID,
                         getString(R.string.ambient_notification_channel_name),
                         NotificationManager.IMPORTANCE_LOW,
-                    ),
+                    ).apply {
+                        // 常駐通知は出すが、ランチャーアイコンのバッジ（点）は出さない
+                        setShowBadge(false)
+                    },
                 )
             }
         }
