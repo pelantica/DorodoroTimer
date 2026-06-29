@@ -32,6 +32,11 @@
     <string name="duration_confirm">決定</string>
     <string name="duration_cancel">キャンセル</string>
 
+    <!-- timer end notification -->
+    <string name="timer_end_channel_name">タイマー終了通知</string>
+    <string name="timer_end_title">セッション終了</string>
+    <string name="timer_end_text">お疲れさま。統計を見て次へ進もう。</string>
+
     <!-- ambient sound (rain) -->
     <string name="timer_sound_start">雨音を鳴らす</string>
     <string name="timer_sound_stop">雨音を止める</string>
