@@ -60,11 +60,14 @@ class TimerViewModel(
             refreshUi()
             if (timerState.isRunning) startTicking()
         }
-        // 設定変更を購読：停止中なら残り秒を新フェーズ初期値に追従
+        // 設定変更を購読：停止中で「現フェーズの満了値ちょうど」のときだけ新設定に追従する。
+        // 一時停止で途中まで減った remaining はクロバーしない（再オープン時に巻き戻さない）。
         viewModelScope.launch {
             settings.preset.collect { p ->
+                val atFullForPhase = !timerState.isRunning &&
+                    timerState.remainingSeconds == TimerReducer.secondsFor(currentPreset, timerState.phase)
                 currentPreset = p
-                if (!timerState.isRunning) {
+                if (atFullForPhase) {
                     timerState = timerState.copy(remainingSeconds = TimerReducer.secondsFor(p, timerState.phase))
                     persist()
                     refreshUi()

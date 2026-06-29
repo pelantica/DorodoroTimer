@@ -73,9 +73,9 @@ class TimerViewModelTest {
         val scheduler = FakeTimerScheduler()
         val timer = FakeTimerStateRepository(TimerState(remainingSeconds = 90))
         val viewModel = vm(timer = timer, scheduler = scheduler)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         viewModel.toggleRunning()
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(listOf(10_000L + 90_000L), scheduler.scheduledAt) // now + 90s
         assertTrue(viewModel.uiState.value.isRunning)
         assertEquals(90, viewModel.uiState.value.remainingSeconds) // end - now
@@ -88,9 +88,9 @@ class TimerViewModelTest {
             TimerState(remainingSeconds = 0, runningUntilEpochMs = 100_000L) // 90s left at now=10000
         )
         val viewModel = vm(timer = timer, scheduler = scheduler)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         viewModel.toggleRunning()
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(1, scheduler.cancelCount)
         assertEquals(false, viewModel.uiState.value.isRunning)
         assertEquals(90, viewModel.uiState.value.remainingSeconds)
@@ -103,9 +103,9 @@ class TimerViewModelTest {
             TimerState(TimerPhase.FOCUS, remainingSeconds = 30, runningUntilEpochMs = 100_000L)
         )
         val viewModel = vm(timer = timer, scheduler = scheduler)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         viewModel.reset()
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(1, scheduler.cancelCount)
         assertEquals(1500, viewModel.uiState.value.remainingSeconds) // focus default in fake settings
         assertEquals(false, viewModel.uiState.value.isRunning)
@@ -118,7 +118,7 @@ class TimerViewModelTest {
             TimerState(TimerPhase.FOCUS, remainingSeconds = 0, runningUntilEpochMs = 5_000L)
         )
         val viewModel = vm(timer = timer)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(TimerPhase.BREAK, viewModel.uiState.value.phase)
         assertEquals(false, viewModel.uiState.value.isRunning)
         assertEquals(300, viewModel.uiState.value.remainingSeconds)
@@ -128,9 +128,9 @@ class TimerViewModelTest {
     fun updateDurations_persistsViaSettings() = runTest(dispatcher) {
         val settings = FakeSettingsRepository()
         val viewModel = vm(settings = settings)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         viewModel.updateDurations(focusSeconds = 60, breakSeconds = 30)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(listOf(60 to 30), settings.updates)
     }
 
@@ -139,9 +139,9 @@ class TimerViewModelTest {
         val settings = FakeSettingsRepository()
         val timer = FakeTimerStateRepository(TimerState(TimerPhase.FOCUS, remainingSeconds = 1500))
         val viewModel = vm(settings = settings, timer = timer)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         settings.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(100, viewModel.uiState.value.remainingSeconds)
     }
 }
