@@ -94,12 +94,15 @@ fun TimerScreen(
     var showPicker by remember { mutableStateOf(false) }
 
     val state by viewModel.uiState.collectAsState()
+    val isSoundPlaying by viewModel.isSoundPlaying.collectAsState()
     TimerContent(
         state = state,
+        isSoundPlaying = isSoundPlaying,
         modifier = modifier,
         onToggle = viewModel::toggleRunning,
         onReset = viewModel::reset,
         onEditTime = { showPicker = true },
+        onToggleSound = viewModel::toggleSound,
     )
 
     if (showPicker) {
@@ -118,10 +121,12 @@ fun TimerScreen(
 @Composable
 private fun TimerContent(
     state: TimerUiState,
+    isSoundPlaying: Boolean,
     modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     onReset: () -> Unit,
     onEditTime: () -> Unit,
+    onToggleSound: () -> Unit,
 ) {
     Column(
         modifier = modifier.padding(24.dp),
@@ -149,6 +154,13 @@ private fun TimerContent(
             OutlinedButton(onClick = onReset) {
                 Text(stringResource(R.string.timer_reset))
             }
+        }
+        OutlinedButton(onClick = onToggleSound) {
+            Text(
+                stringResource(
+                    if (isSoundPlaying) R.string.timer_sound_stop else R.string.timer_sound_start
+                )
+            )
         }
     }
 }

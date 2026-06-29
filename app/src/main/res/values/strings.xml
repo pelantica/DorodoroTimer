@@ -31,4 +31,12 @@
     <string name="duration_delete">削除</string>
     <string name="duration_confirm">決定</string>
     <string name="duration_cancel">キャンセル</string>
+
+    <!-- ambient sound (rain) -->
+    <string name="timer_sound_start">雨音を鳴らす</string>
+    <string name="timer_sound_stop">雨音を止める</string>
+    <string name="ambient_notification_channel_name">環境音</string>
+    <string name="ambient_notification_title">雨音を再生中</string>
+    <string name="ambient_notification_text">集中用の環境音</string>
+    <string name="ambient_stop">停止</string>
 </resources>
