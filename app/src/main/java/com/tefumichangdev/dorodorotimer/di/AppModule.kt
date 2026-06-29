@@ -6,6 +6,8 @@ import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
+import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
+import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.AndroidTimerCommandSender
 import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
 import org.koin.android.ext.koin.androidContext
@@ -19,13 +21,15 @@ val appModule = module {
 
     single<TimerCommandSender> { AndroidTimerCommandSender(androidContext()) }
 
+    single<AmbientSoundController> { AndroidAmbientSoundController(androidContext()) }
+
     // Room（「スレッドを管理してくれる」側）。骨格では生成のみ。
     single {
         Room.databaseBuilder(androidContext(), AppDatabase::class.java, "dorodoro.db").build()
     }
     single { get<AppDatabase>().focusSessionDao() }
 
-    viewModel { TimerViewModel(get(), get()) }
+    viewModel { TimerViewModel(get(), get(), get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。

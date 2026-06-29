@@ -5,6 +5,8 @@
     <!-- タイマー継続のためのフォアグラウンドサービス（事例: ForegroundService startForeground 5秒ルールの舞台） -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 集中用の環境音（雨音）をバックグラウンドで鳴らすフォアグラウンドサービス -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 端末再起動でリマインダ再設定（事例⑥ BroadcastReceiver の舞台） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -48,6 +50,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="A focus (pomodoro) countdown timer that must keep running while screen is off." />
         </service>
+
+        <!-- 集中用の環境音（雨音）ループ再生。FGSの教科書的ユースケース（mediaPlayback）。 -->
+        <service
+            android:name=".service.AmbientSoundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
     </application>
 
