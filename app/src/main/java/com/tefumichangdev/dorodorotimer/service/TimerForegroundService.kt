@@ -28,7 +28,8 @@ import org.koin.android.ext.android.inject
 class TimerForegroundService : Service() {
 
     private val settings: PomodoroSettingsRepository by inject()
-    @Volatile private var currentPreset: PomodoroPreset = PomodoroPreset.Default
+    @Volatile
+    private var currentPreset: PomodoroPreset = PomodoroPreset.Default
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var tickJob: Job? = null
@@ -39,6 +40,7 @@ class TimerForegroundService : Service() {
     inner class LocalBinder : Binder() {
         fun service(): TimerForegroundService = this@TimerForegroundService
     }
+
     private val binder = LocalBinder()
 
     override fun onCreate() {
@@ -49,7 +51,14 @@ class TimerForegroundService : Service() {
             settings.preset.collect { preset ->
                 currentPreset = preset
                 // 停止中のときだけ、待機表示を新しい設定に追従させる（原子化）
-                _state.update { if (it.isRunning) it else it.copy(remainingSeconds = TimerReducer.secondsFor(preset, it.phase)) }
+                _state.update {
+                    if (it.isRunning) it else it.copy(
+                        remainingSeconds = TimerReducer.secondsFor(
+                            preset,
+                            it.phase
+                        )
+                    )
+                }
             }
         }
     }
@@ -58,7 +67,10 @@ class TimerForegroundService : Service() {
         Log.d(TAG, "onStartCommand action=${intent?.action}")
         // [ANR-FGS] demoMode ON のときは、ここで重い初期化をしてから startForeground を遅らせ、
         //  service系ANR（startForegroundService→5秒以内に未呼び出し）を再現する。今回は正版＝即時。
-        startForeground(TimerNotifications.NOTIFICATION_ID, TimerNotifications.build(this, _state.value))
+        startForeground(
+            TimerNotifications.NOTIFICATION_ID,
+            TimerNotifications.build(this, _state.value)
+        )
         when (intent?.action) {
             TimerAction.START -> startCountdown()
             TimerAction.PAUSE -> pauseCountdown()
@@ -113,7 +125,10 @@ class TimerForegroundService : Service() {
 
     private fun updateNotification() {
         val manager = getSystemService(android.app.NotificationManager::class.java)
-        manager.notify(TimerNotifications.NOTIFICATION_ID, TimerNotifications.build(this, _state.value))
+        manager.notify(
+            TimerNotifications.NOTIFICATION_ID,
+            TimerNotifications.build(this, _state.value)
+        )
     }
 
     companion object {
