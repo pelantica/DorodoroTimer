@@ -2,14 +2,16 @@ package com.tefumichangdev.dorodorotimer.di
 
 import androidx.room.Room
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
-import com.tefumichangdev.dorodorotimer.service.AndroidTimerCommandSender
-import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
+import com.tefumichangdev.dorodorotimer.service.AndroidTimerScheduler
+import com.tefumichangdev.dorodorotimer.service.TimerScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -19,7 +21,11 @@ val appModule = module {
         DataStorePomodoroSettingsRepository(androidContext().pomodoroDataStore)
     }
 
-    single<TimerCommandSender> { AndroidTimerCommandSender(androidContext()) }
+    single<TimerStateRepository> {
+        DataStoreTimerStateRepository(androidContext().pomodoroDataStore)
+    }
+
+    single<TimerScheduler> { AndroidTimerScheduler(androidContext()) }
 
     single<AmbientSoundController> { AndroidAmbientSoundController(androidContext()) }
 
@@ -29,7 +35,7 @@ val appModule = module {
     }
     single { get<AppDatabase>().focusSessionDao() }
 
-    viewModel { TimerViewModel(get(), get(), get()) }
+    viewModel { TimerViewModel(get(), get(), get(), get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。

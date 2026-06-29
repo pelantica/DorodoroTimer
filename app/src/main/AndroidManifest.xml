@@ -2,10 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- タイマー継続のためのフォアグラウンドサービス（事例: ForegroundService startForeground 5秒ルールの舞台） -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 集中用の環境音（雨音）をバックグラウンドで鳴らすフォアグラウンドサービス -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 端末再起動でリマインダ再設定（事例⑥ BroadcastReceiver の舞台） -->
@@ -29,33 +27,24 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- TODO(ANR-03): Deeplink 起動で「冷えた起動 × 重い初期化」のロック競合を再現する入口。
-                 実装時に scheme/host を有効化して通知タップから統計画面へ飛ばす。
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dorodoro" android:host="stats" />
             </intent-filter>
-            -->
         </activity>
-
-        <!-- TODO(ANR-FGS): タイマー継続用フォアグラウンドサービス。骨格では器のみ。
-             startForegroundService() 後 5 秒以内に startForeground() を呼ぶ責務をここで扱う。 -->
-        <service
-            android:name=".service.TimerForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="A focus (pomodoro) countdown timer that must keep running while screen is off." />
-        </service>
 
         <!-- 集中用の環境音（雨音）ループ再生。FGSの教科書的ユースケース（mediaPlayback）。 -->
         <service
             android:name=".service.AmbientSoundService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- タイマー終了アラームの受け口（AlarmManager → 終了通知）。exported=false。 -->
+        <receiver
+            android:name=".service.TimerAlarmReceiver"
+            android:exported="false" />
 
     </application>
 

@@ -1,5 +1,7 @@
 package com.tefumichangdev.dorodorotimer
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,9 +32,10 @@ import com.tefumichangdev.dorodorotimer.feature.timer.TimerScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val startTab = intent.toStartTab()
         setContent {
             DorodoroTimerTheme {
-                DorodoroApp()
+                DorodoroApp(startTab = startTab)
             }
         }
     }
@@ -45,8 +48,8 @@ private enum class Tab(val labelRes: Int, val icon: ImageVector) {
 }
 
 @Composable
-private fun DorodoroApp() {
-    var current by remember { mutableStateOf(Tab.TIMER) }
+private fun DorodoroApp(startTab: Tab = Tab.TIMER) {
+    var current by remember { mutableStateOf(startTab) }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -70,4 +73,9 @@ private fun DorodoroApp() {
             Tab.SETTINGS -> SettingsScreen(modifier = contentModifier)
         }
     }
+}
+
+private fun Intent?.toStartTab(): Tab {
+    val data: Uri? = this?.data
+    return if (data?.scheme == "dorodoro" && data.host == "stats") Tab.STATS else Tab.TIMER
 }

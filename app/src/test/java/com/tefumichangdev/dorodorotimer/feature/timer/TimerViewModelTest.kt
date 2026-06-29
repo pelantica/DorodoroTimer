@@ -7,7 +7,9 @@ import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsReposi
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.TimerScheduler
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,6 +81,8 @@ class TimerViewModelTest {
         assertEquals(listOf(10_000L + 90_000L), scheduler.scheduledAt) // now + 90s
         assertTrue(viewModel.uiState.value.isRunning)
         assertEquals(90, viewModel.uiState.value.remainingSeconds) // end - now
+        // tick ループが runTest cleanup の advanceUntilIdle で無限ループしないようスコープを止める
+        viewModel.viewModelScope.cancel()
     }
 
     @Test
