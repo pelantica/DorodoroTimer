@@ -59,6 +59,8 @@
 - 設計判断が要る場面（新規ライブラリ、Room スキーマ破壊的変更、DI/アーキ変更）は選択肢を提示して相談。
 - main に直接コミットしない。作業ブランチを切る。
 - 仕様の唯一の源は Notion。曖昧な箇所は勝手に埋めず質問する。
+- **設計ドキュメントは Notion で管理**（「🍅 DorodoroTimer 設計メモ」配下に子ページ）。git には置かない。実装計画（plan）は scratchpad（使い捨て）。
+- 段階的な実装（ANRパターン等）は **subagent-driven** で進める（サブエージェント活用・コミット確認などの一般方針は `~/.claude/CLAUDE.md`）。
 
 ## コミット
 - メッセージは日本語OK。Conventional Commits 風（`feat:`/`fix:`/`refactor:`/`chore:`/`docs:`）。1コミット1粒。
