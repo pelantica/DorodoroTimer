@@ -4,10 +4,12 @@ import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
 import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.TimerCommandSender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -34,6 +36,14 @@ private class FakeSettingsRepository : PomodoroSettingsRepository {
     }
 }
 
+private class FakeAmbientSoundController : AmbientSoundController {
+    private val flow = MutableStateFlow(false)
+    override val isPlaying: StateFlow<Boolean> = flow
+    override fun toggle() { flow.value = !flow.value }
+    override fun play() { flow.value = true }
+    override fun stop() { flow.value = false }
+}
+
 class TimerViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
@@ -43,7 +53,7 @@ class TimerViewModelTest {
     @Test
     fun toggleRunning_whenNotRunning_callsStart() {
         val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository())
+        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
         vm.toggleRunning()
         assertEquals(listOf("start"), cmd.calls)
     }
@@ -51,14 +61,14 @@ class TimerViewModelTest {
     @Test
     fun reset_callsReset() {
         val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository())
+        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
         vm.reset()
         assertEquals(listOf("reset"), cmd.calls)
     }
 
     @Test
     fun attachState_mirrorsServiceStateIntoUiState() = runTest(dispatcher) {
-        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository())
+        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository(), FakeAmbientSoundController())
         val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1500, isRunning = false))
         vm.attachState(serviceState)
         serviceState.value = TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true)
@@ -69,7 +79,7 @@ class TimerViewModelTest {
     @Test
     fun toggleRunning_whenRunning_callsPause() = runTest(dispatcher) {
         val cmd = FakeCommandSender()
-        val vm = TimerViewModel(cmd, FakeSettingsRepository())
+        val vm = TimerViewModel(cmd, FakeSettingsRepository(), FakeAmbientSoundController())
         val serviceState = MutableStateFlow(TimerUiState(TimerPhase.FOCUS, 1499, isRunning = true))
         vm.attachState(serviceState)
         testScheduler.advanceUntilIdle()
@@ -80,7 +90,7 @@ class TimerViewModelTest {
     @Test
     fun updateDurations_persistsViaRepository() = runTest(dispatcher) {
         val repo = FakeSettingsRepository()
-        val vm = TimerViewModel(FakeCommandSender(), repo)
+        val vm = TimerViewModel(FakeCommandSender(), repo, FakeAmbientSoundController())
         vm.updateDurations(focusSeconds = 30, breakSeconds = 10)
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(30 to 10), repo.updates)
@@ -89,9 +99,19 @@ class TimerViewModelTest {
     @Test
     fun preset_reflectsRepositoryValue() = runTest(dispatcher) {
         val repo = FakeSettingsRepository()
-        val vm = TimerViewModel(FakeCommandSender(), repo)
+        val vm = TimerViewModel(FakeCommandSender(), repo, FakeAmbientSoundController())
         repo.flow.value = PomodoroPreset(focusSeconds = 90, breakSeconds = 30)
         testScheduler.advanceUntilIdle()
         assertEquals(PomodoroPreset(90, 30), vm.preset.value)
+    }
+
+    @Test
+    fun toggleSound_flipsIsSoundPlaying() {
+        val vm = TimerViewModel(FakeCommandSender(), FakeSettingsRepository(), FakeAmbientSoundController())
+        assertEquals(false, vm.isSoundPlaying.value)
+        vm.toggleSound()
+        assertEquals(true, vm.isSoundPlaying.value)
+        vm.toggleSound()
+        assertEquals(false, vm.isSoundPlaying.value)
     }
 }
