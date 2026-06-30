@@ -1,12 +1,15 @@
 package com.tefumichangdev.dorodorotimer.di
 
 import androidx.room.Room
+import com.tefumichangdev.dorodorotimer.core.debug.DemoFlags
+import com.tefumichangdev.dorodorotimer.core.debug.SharedPrefsDemoFlags
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
+import com.tefumichangdev.dorodorotimer.feature.settings.SettingsViewModel
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
@@ -17,6 +20,8 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
+    single<DemoFlags> { SharedPrefsDemoFlags(androidContext()) }
+
     single<PomodoroSettingsRepository> {
         DataStorePomodoroSettingsRepository(androidContext().pomodoroDataStore)
     }
@@ -36,6 +41,7 @@ val appModule = module {
     single { get<AppDatabase>().focusSessionDao() }
 
     viewModel { TimerViewModel(get(), get(), get(), get()) }
+    viewModel { SettingsViewModel(get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。
