@@ -5,10 +5,10 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
-import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
-import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
@@ -28,7 +28,7 @@ val appModule = module {
         }
     }
 
-    single<PomodoroSettingsRepository> { DataStorePomodoroSettingsRepository(get()) }
+    single<PomodoroPresetRepository> { DataStorePomodoroPresetRepository(get()) }
 
     single<TimerStateRepository> { DataStoreTimerStateRepository(get()) }
 

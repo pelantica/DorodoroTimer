@@ -6,7 +6,7 @@ import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerState
 import com.tefumichangdev.dorodorotimer.domain.model.TimerUiState
 import com.tefumichangdev.dorodorotimer.domain.model.isRunning
-import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.TimerReducer
@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
  * 実行中だけ毎秒 uiState を end-now から再計算する。常駐Serviceは持たない。
  */
 class TimerViewModel(
-    private val settings: PomodoroSettingsRepository,
+    private val presetRepo: PomodoroPresetRepository,
     private val timerStateRepo: TimerStateRepository,
     private val scheduler: TimerScheduler,
     private val ambientSound: AmbientSoundController,
@@ -39,7 +39,7 @@ class TimerViewModel(
     private val _uiState = MutableStateFlow(TimerUiState())
     val uiState: StateFlow<TimerUiState> = _uiState.asStateFlow()
 
-    val preset: StateFlow<PomodoroPreset> = settings.preset.stateIn(
+    val preset: StateFlow<PomodoroPreset> = presetRepo.preset.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
         initialValue = PomodoroPreset.Default,
@@ -62,7 +62,7 @@ class TimerViewModel(
             // load 完了後に設定購読を開始（順序保証：ロード前に collector が persist しない）。
             // 停止中で「現フェーズの満了値ちょうど」のときだけ新設定に追従し、
             // 一時停止で途中まで減った remaining はクロバーしない。
-            settings.preset.collect { p ->
+            presetRepo.preset.collect { p ->
                 val atFullForPhase = !timerState.isRunning &&
                     timerState.remainingSeconds == TimerReducer.secondsFor(currentPreset, timerState.phase)
                 currentPreset = p
@@ -104,7 +104,7 @@ class TimerViewModel(
     }
 
     fun updateDurations(focusSeconds: Int, breakSeconds: Int) {
-        viewModelScope.launch { settings.update(focusSeconds, breakSeconds) }
+        viewModelScope.launch { presetRepo.update(focusSeconds, breakSeconds) }
     }
 
     fun toggleSound() {

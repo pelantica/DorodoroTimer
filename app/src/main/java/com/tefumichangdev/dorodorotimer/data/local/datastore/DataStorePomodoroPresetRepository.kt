@@ -5,13 +5,13 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
-import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class DataStorePomodoroSettingsRepository(
+class DataStorePomodoroPresetRepository(
     private val dataStore: DataStore<Preferences>,
-) : PomodoroSettingsRepository {
+) : PomodoroPresetRepository {
 
     private val focusKey = intPreferencesKey("focus_seconds")
     private val breakKey = intPreferencesKey("break_seconds")
