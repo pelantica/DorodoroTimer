@@ -25,7 +25,7 @@ class OffloadedStatsRepositoryTest {
         val repo = OffloadedStatsRepository(dao)
         val result = repo.dailyStats()
         assertEquals(1, result.size)
-        assertEquals(TimerPhase.FOCUS.name.let { 1 }, result[0].focusCount) // only FOCUS counted
+        assertEquals(1, result[0].focusCount) // only FOCUS counted
     }
 
     @Test

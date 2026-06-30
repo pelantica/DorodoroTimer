@@ -39,7 +39,7 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
 }
 
 @Composable
-fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState) {
+fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
     when {
         uiState.isLoading -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.stats_placeholder))
@@ -57,7 +57,7 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState) {
 }
 
 @Composable
-private fun StatsDailyRow(stat: DailyStat, modifier: Modifier = Modifier) {
+private fun StatsDailyRow(modifier: Modifier = Modifier, stat: DailyStat) {
     val date = LocalDate.ofEpochDay(stat.dateEpochDay)
     val totalMinutes = stat.totalFocusSeconds / 60
     Column(
