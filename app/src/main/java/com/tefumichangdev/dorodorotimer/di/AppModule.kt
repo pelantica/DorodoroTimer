@@ -1,15 +1,21 @@
 package com.tefumichangdev.dorodorotimer.di
 
 import androidx.room.Room
+import com.tefumichangdev.dorodorotimer.core.debug.Anr
 import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 import com.tefumichangdev.dorodorotimer.core.debug.DemoFlags
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
+import com.tefumichangdev.dorodorotimer.data.local.stats.BlockingStatsRepository
+import com.tefumichangdev.dorodorotimer.data.local.stats.OffloadedStatsRepository
+import com.tefumichangdev.dorodorotimer.data.local.stats.RawSqliteStatsHelper
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.StatsRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.feature.settings.SettingsViewModel
+import com.tefumichangdev.dorodorotimer.feature.stats.StatsViewModel
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
@@ -34,14 +40,25 @@ val appModule = module {
 
     single<AmbientSoundController> { AndroidAmbientSoundController(androidContext()) }
 
-    // Room（「スレッドを管理してくれる」側）。骨格では生成のみ。
+    // Room（「スレッドを管理してくれる」側）
     single {
         Room.databaseBuilder(androidContext(), AppDatabase::class.java, "dorodoro.db").build()
     }
     single { get<AppDatabase>().focusSessionDao() }
 
+    // ANR-01: 生SQLite（「守ってくれない」側）ヘルパー
+    single { RawSqliteStatsHelper(androidContext()) }
+
+    // ANR-01: demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
+    //         demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
+    single<StatsRepository> {
+        if (DemoConfig.isOn(Anr.ANR_01)) BlockingStatsRepository(get())
+        else OffloadedStatsRepository(get())
+    }
+
     viewModel { TimerViewModel(get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
+    viewModel { StatsViewModel(get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。
@@ -50,9 +67,3 @@ val appModule = module {
 //  例:
 //    val lazyAppModule = lazyModule { single { /* 重い依存 */ } }
 //    // DorodoroApplication: startKoin { lazyModules(lazyAppModule) }
-//
-// TODO(ANR-01): SQLDelight（「スレッドを管理してくれない」側）のドライバ／DB を Koin に追加し、
-//  Room との対比で「同じI/Oでも呼んだスレッドで同期実行される」を見せる。
-//  例:
-//    single<SqlDriver> { AndroidSqliteDriver(StatsDatabase.Schema, androidContext(), "stats.db") }
-//    single { StatsDatabase(get()) }
