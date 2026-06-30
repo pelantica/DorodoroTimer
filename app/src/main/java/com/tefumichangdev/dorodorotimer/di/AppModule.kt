@@ -1,9 +1,12 @@
 package com.tefumichangdev.dorodorotimer.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
-import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
@@ -17,13 +20,17 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
-    single<PomodoroSettingsRepository> {
-        DataStorePomodoroSettingsRepository(androidContext().pomodoroDataStore)
+    // アプリ単一の Preferences DataStore。生成は DI が所有し（@Singleton 相当）、各 Repository は
+    // get() で受け取る。設定とタイマー状態は同一ストアをキー分割で共有する（ファイルは1つ）。
+    single<DataStore<Preferences>> {
+        PreferenceDataStoreFactory.create {
+            androidContext().preferencesDataStoreFile("pomodoro_settings")
+        }
     }
 
-    single<TimerStateRepository> {
-        DataStoreTimerStateRepository(androidContext().pomodoroDataStore)
-    }
+    single<PomodoroSettingsRepository> { DataStorePomodoroSettingsRepository(get()) }
+
+    single<TimerStateRepository> { DataStoreTimerStateRepository(get()) }
 
     single<TimerScheduler> { AndroidTimerScheduler(androidContext()) }
 
