@@ -17,6 +17,7 @@ desugarJdkLibs = "2.1.5"
 # --- DorodoroTimer 追加（demoMode / lazy / 永続化の対比のための土台）---
 koin = "4.1.0"
 workManager = "2.10.1"
+robolectric = "4.14.1"
 sqldelight = "2.1.0"
 coroutines = "1.10.1"
 
@@ -51,6 +52,8 @@ koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin" }
 koin-android = { group = "io.insert-koin", name = "koin-android" }
 koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "workManager" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 sqldelight-android-driver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { group = "app.cash.sqldelight", name = "coroutines-extensions", version.ref = "sqldelight" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
