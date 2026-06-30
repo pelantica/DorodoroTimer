@@ -32,6 +32,9 @@ object DemoConfig {
 
     private fun requireFlags(): DemoFlags = flags ?: error("DemoConfig.init not called")
 
+    /** Koin などから同一インスタンスを取得するための公開アクセサ。init 前に呼ぶと例外になる。 */
+    fun current(): DemoFlags = requireFlags()
+
     /** master AND 個別。各ANRフックはこれでガードする。 */
     fun isOn(anr: Anr): Boolean {
         val f = flags ?: return false

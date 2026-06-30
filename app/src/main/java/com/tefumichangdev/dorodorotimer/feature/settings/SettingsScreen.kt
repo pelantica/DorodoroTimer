@@ -44,19 +44,19 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     SettingsContent(
+        modifier = modifier,
         state = state,
         onMaster = viewModel::setMaster,
         onAnr = viewModel::setAnr,
-        modifier = modifier,
     )
 }
 
 @Composable
 fun SettingsContent(
+    modifier: Modifier = Modifier,
     state: DemoFlagsState,
     onMaster: (Boolean) -> Unit,
     onAnr: (Anr, Boolean) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier

@@ -1,8 +1,8 @@
 package com.tefumichangdev.dorodorotimer.di
 
 import androidx.room.Room
+import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 import com.tefumichangdev.dorodorotimer.core.debug.DemoFlags
-import com.tefumichangdev.dorodorotimer.core.debug.SharedPrefsDemoFlags
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroSettingsRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.pomodoroDataStore
@@ -20,7 +20,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
-    single<DemoFlags> { SharedPrefsDemoFlags(androidContext()) }
+    single<DemoFlags> { DemoConfig.current() }
 
     single<PomodoroSettingsRepository> {
         DataStorePomodoroSettingsRepository(androidContext().pomodoroDataStore)
