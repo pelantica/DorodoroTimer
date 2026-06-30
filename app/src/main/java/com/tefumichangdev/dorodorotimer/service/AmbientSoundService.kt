@@ -15,6 +15,8 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.tefumichangdev.dorodorotimer.R
+import com.tefumichangdev.dorodorotimer.core.debug.Anr
+import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 
 /**
  * 雨音（環境音）をループ再生するフォアグラウンドService（mediaPlayback）。
@@ -61,6 +63,12 @@ class AmbientSoundService : Service() {
     }
 
     private fun startPlayback() {
+        if (DemoConfig.isOn(Anr.ANR_FGS)) {
+            // [ANR-FGS] startForeground を5秒以内に呼ばないと ForegroundServiceDidNotStartInTimeException。
+            //  ここで重い同期処理を挟むと5秒ルール違反になる。
+            //  処方: 先に startForeground を呼び、重い初期化はその後（または別スレッド）へ。
+            FgsStartupWork.heavyBlockingWork()
+        }
         startForeground(NOTIFICATION_ID, buildNotification())
         if (player != null) {
             player?.start()
