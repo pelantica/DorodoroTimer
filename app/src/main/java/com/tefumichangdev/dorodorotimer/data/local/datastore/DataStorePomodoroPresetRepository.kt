@@ -1,22 +1,17 @@
 package com.tefumichangdev.dorodorotimer.data.local.datastore
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
-import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/** アプリ単一の DataStore。Koin で androidContext().pomodoroDataStore を渡す。 */
-val Context.pomodoroDataStore: DataStore<Preferences> by preferencesDataStore(name = "pomodoro_settings")
-
-class DataStorePomodoroSettingsRepository(
+class DataStorePomodoroPresetRepository(
     private val dataStore: DataStore<Preferences>,
-) : PomodoroSettingsRepository {
+) : PomodoroPresetRepository {
 
     private val focusKey = intPreferencesKey("focus_seconds")
     private val breakKey = intPreferencesKey("break_seconds")

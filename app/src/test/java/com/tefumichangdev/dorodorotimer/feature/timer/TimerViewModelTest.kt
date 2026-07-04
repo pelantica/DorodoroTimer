@@ -3,7 +3,7 @@ package com.tefumichangdev.dorodorotimer.feature.timer
 import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
 import com.tefumichangdev.dorodorotimer.domain.model.TimerState
-import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroSettingsRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.TimerScheduler
@@ -23,7 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-private class FakeSettingsRepository : PomodoroSettingsRepository {
+private class FakePresetRepository : PomodoroPresetRepository {
     val flow = MutableStateFlow(PomodoroPreset(focusSeconds = 1500, breakSeconds = 300))
     val updates = mutableListOf<Pair<Int, Int>>()
     override val preset: Flow<PomodoroPreset> = flow
@@ -63,12 +63,12 @@ class TimerViewModelTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     private fun vm(
-        settings: FakeSettingsRepository = FakeSettingsRepository(),
+        presetRepo: FakePresetRepository = FakePresetRepository(),
         timer: FakeTimerStateRepository = FakeTimerStateRepository(
             TimerState(TimerPhase.FOCUS, remainingSeconds = 1500, runningUntilEpochMs = null)
         ),
         scheduler: FakeTimerScheduler = FakeTimerScheduler(),
-    ) = TimerViewModel(settings, timer, scheduler, FakeAmbientSoundController(), now = { fixedNow })
+    ) = TimerViewModel(presetRepo, timer, scheduler, FakeAmbientSoundController(), now = { fixedNow })
 
     @Test
     fun toggleRunning_whenStopped_schedulesAndMarksRunning() = runTest(dispatcher) {
@@ -111,7 +111,7 @@ class TimerViewModelTest {
         viewModel.reset()
         testScheduler.runCurrent()
         assertEquals(1, scheduler.cancelCount)
-        assertEquals(1500, viewModel.uiState.value.remainingSeconds) // focus default in fake settings
+        assertEquals(1500, viewModel.uiState.value.remainingSeconds) // focus default in fake presetRepo
         assertEquals(false, viewModel.uiState.value.isRunning)
     }
 
@@ -130,21 +130,21 @@ class TimerViewModelTest {
 
     @Test
     fun updateDurations_persistsViaSettings() = runTest(dispatcher) {
-        val settings = FakeSettingsRepository()
-        val viewModel = vm(settings = settings)
+        val presetRepo = FakePresetRepository()
+        val viewModel = vm(presetRepo = presetRepo)
         testScheduler.runCurrent()
         viewModel.updateDurations(focusSeconds = 60, breakSeconds = 30)
         testScheduler.runCurrent()
-        assertEquals(listOf(60 to 30), settings.updates)
+        assertEquals(listOf(60 to 30), presetRepo.updates)
     }
 
     @Test
     fun presetChange_whileStopped_updatesRemaining() = runTest(dispatcher) {
-        val settings = FakeSettingsRepository()
+        val presetRepo = FakePresetRepository()
         val timer = FakeTimerStateRepository(TimerState(TimerPhase.FOCUS, remainingSeconds = 1500))
-        val viewModel = vm(settings = settings, timer = timer)
+        val viewModel = vm(presetRepo = presetRepo, timer = timer)
         testScheduler.runCurrent()
-        settings.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
+        presetRepo.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
         testScheduler.runCurrent()
         assertEquals(100, viewModel.uiState.value.remainingSeconds)
     }
@@ -175,14 +175,14 @@ class TimerViewModelTest {
 
     @Test
     fun presetChange_whilePausedPartial_doesNotClobberRemaining() = runTest(dispatcher) {
-        val settings = FakeSettingsRepository()
+        val presetRepo = FakePresetRepository()
         val timer = FakeTimerStateRepository(
             TimerState(TimerPhase.FOCUS, remainingSeconds = 90, runningUntilEpochMs = null)
         )
-        val viewModel = vm(settings = settings, timer = timer)
+        val viewModel = vm(presetRepo = presetRepo, timer = timer)
         testScheduler.runCurrent()
         assertEquals(90, viewModel.uiState.value.remainingSeconds) // 初回emissionで巻き戻らない
-        settings.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
+        presetRepo.flow.value = PomodoroPreset(focusSeconds = 100, breakSeconds = 30)
         testScheduler.runCurrent()
         assertEquals(90, viewModel.uiState.value.remainingSeconds) // partialは維持
     }
