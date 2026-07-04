@@ -5,11 +5,14 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
+import com.tefumichangdev.dorodorotimer.core.debug.DemoFlags
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
 import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
+import com.tefumichangdev.dorodorotimer.feature.settings.SettingsViewModel
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
 import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
 import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
@@ -20,6 +23,8 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
+    single<DemoFlags> { DemoConfig.current() }
+
     // アプリ単一の Preferences DataStore。生成は DI が所有し（@Singleton 相当）、各 Repository は
     // get() で受け取る。設定とタイマー状態は同一ストアをキー分割で共有する（ファイルは1つ）。
     single<DataStore<Preferences>> {
@@ -43,6 +48,7 @@ val appModule = module {
     single { get<AppDatabase>().focusSessionDao() }
 
     viewModel { TimerViewModel(get(), get(), get(), get()) }
+    viewModel { SettingsViewModel(get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。

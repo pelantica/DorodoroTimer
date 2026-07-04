@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.tefumichangdev.dorodorotimer.core.debug.Anr
 import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 
 /**
@@ -17,7 +18,7 @@ class TimerAlarmReceiver : BroadcastReceiver() {
         if (intent?.action != ACTION_TIMER_FINISHED) return
         // [ANR-06] demoMode ON のとき、ここで重い同期処理（DB集計やsleep等）を走らせると
         //  onReceive がメインを固めて BroadcastReceiver ANR を再現できる。今回は正版＝即通知のみ。
-        if (DemoConfig.enabled) {
+        if (DemoConfig.isOn(Anr.ANR_06)) {
             // TODO(ANR-06): 重い同期処理をここで（例: Thread.sleep / 同期DB集計）。
         }
         TimerEndNotifications.notifyFinished(context)

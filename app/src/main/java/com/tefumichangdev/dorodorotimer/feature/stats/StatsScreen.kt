@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.tefumichangdev.dorodorotimer.R
+import com.tefumichangdev.dorodorotimer.core.debug.Anr
 import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 
 @Composable
@@ -16,7 +17,7 @@ fun StatsScreen(modifier: Modifier = Modifier) {
         // [ANR-03] 通知ディープリンク流入（冷えた起動）でこの画面が前面化する。
         //  demoMode ON のとき、ここで重い同期集計やロック競合を走らせると起動ANRを再現できる。
         //  今回は土台のみ＝フックだけ。本体は未実装。
-        if (DemoConfig.enabled) {
+        if (DemoConfig.isOn(Anr.ANR_03)) {
             // TODO(ANR-03): 重い同期処理（DB全件集計 / ロック競合 / Thread.sleep 等）をここで。
         }
     }
