@@ -19,6 +19,14 @@
     <!-- settings -->
     <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
     <string name="settings_demo_mode_desc">ONにすると、わざとANRを誘発する実装経路を通る。登壇デモ用。リリースでは常にOFF。</string>
+    <string name="settings_anr_section_title">ANR個別トグル</string>
+    <string name="settings_anr_01_label">ANR-01 メインスレッドI/O</string>
+    <string name="settings_anr_02_label">ANR-02 起動時の重い初期化</string>
+    <string name="settings_anr_03_label">ANR-03 ディープリンク×ロック競合</string>
+    <string name="settings_anr_05_label">ANR-05 WorkManager</string>
+    <string name="settings_anr_06_label">ANR-06 BroadcastReceiver</string>
+    <string name="settings_anr_07_label">ANR-07 起動時クラスロード集中</string>
+    <string name="settings_anr_fgs_label">ANR-FGS startForeground 5秒ルール</string>
 
     <!-- duration picker dialog -->
     <string name="duration_dialog_title">時間を設定</string>
