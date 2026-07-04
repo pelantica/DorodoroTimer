@@ -1,15 +1,40 @@
 package com.tefumichangdev.dorodorotimer.di
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStorePomodoroPresetRepository
+import com.tefumichangdev.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.tefumichangdev.dorodorotimer.data.local.room.AppDatabase
-import com.tefumichangdev.dorodorotimer.domain.model.PomodoroPreset
+import com.tefumichangdev.dorodorotimer.domain.repository.PomodoroPresetRepository
+import com.tefumichangdev.dorodorotimer.domain.repository.TimerStateRepository
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerViewModel
+import com.tefumichangdev.dorodorotimer.service.AmbientSoundController
+import com.tefumichangdev.dorodorotimer.service.AndroidAmbientSoundController
+import com.tefumichangdev.dorodorotimer.service.AndroidTimerScheduler
+import com.tefumichangdev.dorodorotimer.service.TimerScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
-    single { PomodoroPreset.Default }
+    // アプリ単一の Preferences DataStore。生成は DI が所有し（@Singleton 相当）、各 Repository は
+    // get() で受け取る。設定とタイマー状態は同一ストアをキー分割で共有する（ファイルは1つ）。
+    single<DataStore<Preferences>> {
+        PreferenceDataStoreFactory.create {
+            androidContext().preferencesDataStoreFile("pomodoro_settings")
+        }
+    }
+
+    single<PomodoroPresetRepository> { DataStorePomodoroPresetRepository(get()) }
+
+    single<TimerStateRepository> { DataStoreTimerStateRepository(get()) }
+
+    single<TimerScheduler> { AndroidTimerScheduler(androidContext()) }
+
+    single<AmbientSoundController> { AndroidAmbientSoundController(androidContext()) }
 
     // Room（「スレッドを管理してくれる」側）。骨格では生成のみ。
     single {
@@ -17,7 +42,7 @@ val appModule = module {
     }
     single { get<AppDatabase>().focusSessionDao() }
 
-    viewModel { TimerViewModel(get()) }
+    viewModel { TimerViewModel(get(), get(), get(), get()) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。

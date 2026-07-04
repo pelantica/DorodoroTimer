@@ -19,4 +19,25 @@
     <!-- settings -->
     <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
     <string name="settings_demo_mode_desc">ONにすると、わざとANRを誘発する実装経路を通る。登壇デモ用。リリースでは常にOFF。</string>
+
+    <!-- duration picker dialog -->
+    <string name="duration_dialog_title">時間を設定</string>
+    <string name="duration_target_focus">集中</string>
+    <string name="duration_target_break">休憩</string>
+    <string name="duration_delete">削除</string>
+    <string name="duration_confirm">決定</string>
+    <string name="duration_cancel">キャンセル</string>
+
+    <!-- timer end notification -->
+    <string name="timer_end_channel_name">タイマー終了通知</string>
+    <string name="timer_end_title">セッション終了</string>
+    <string name="timer_end_text">お疲れさま。統計を見て次へ進もう。</string>
+
+    <!-- ambient sound (rain) -->
+    <string name="timer_sound_start">雨音を鳴らす</string>
+    <string name="timer_sound_stop">雨音を止める</string>
+    <string name="ambient_notification_channel_name">環境音</string>
+    <string name="ambient_notification_title">雨音を再生中</string>
+    <string name="ambient_notification_text">集中用の環境音</string>
+    <string name="ambient_stop">停止</string>
 </resources>
