@@ -11,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * [ANR-05] StatsSyncWorker のユニットテスト（Robolectric）。
+ * [ANR-05] AnrLogUploadWorker のユニットテスト（Robolectric）。
  *
  * 教材の核心: "doWork 自体は無実" を確認する。
  * WorkManager が BG でプロセスを起こすことで ANR-02 の重い onCreate が起動枠で走るが、
@@ -22,16 +22,23 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
-class StatsSyncWorkerTest {
+class AnrLogUploadWorkerTest {
 
     @Test
     fun doWork_alwaysReturnsSuccess() = runTest {
-        // [ANR-05] doWork は何もせず Result.success() を返す（軽量・無実の証明）
+        // [ANR-05] doWork は ANRログ送信を行い Result.success() を返す（軽量・無実の証明）
         val context = RuntimeEnvironment.getApplication()
-        val worker = TestListenableWorkerBuilder<StatsSyncWorker>(context).build()
+        val worker = TestListenableWorkerBuilder<AnrLogUploadWorker>(context).build()
 
         val result = worker.doWork()
 
         assertEquals(ListenableWorker.Result.success(), result)
+    }
+
+    @Test
+    fun anrLogUploader_upload_returnsReportCount() {
+        val count = AnrLogUploader.upload(listOf("a", "b", "c"))
+
+        assertEquals(3, count)
     }
 }
