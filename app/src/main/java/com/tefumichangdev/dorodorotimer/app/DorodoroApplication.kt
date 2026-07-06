@@ -4,6 +4,7 @@ import android.app.Application
 import com.tefumichangdev.dorodorotimer.core.debug.Anr
 import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 import com.tefumichangdev.dorodorotimer.di.appModule
+import com.tefumichangdev.dorodorotimer.service.work.AnrLogUploadScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -19,6 +20,13 @@ class DorodoroApplication : Application() {
         startKoin {
             androidContext(this@DorodoroApplication)
             modules(appModule)
+        }
+        if (DemoConfig.isOn(Anr.ANR_05)) {
+            // [ANR-05] demoMode 時、ANRログ送信を模して Work を enqueue する。
+            //  冷えたプロセスに WorkManager がジョブを投げると新プロセスが立ち上がり、
+            //  ANR-02 の重い onCreate が起動枠内で走ることで起動 ANR になる（連結シナリオ）。
+            //  ANR-02 トグルも ON にして、アプリを BG に落とした後に発火させること。
+            AnrLogUploadScheduler.enqueue(this)
         }
     }
 }
