@@ -1,6 +1,7 @@
 package com.tefumichangdev.dorodorotimer.app
 
 import android.app.Application
+import com.tefumichangdev.dorodorotimer.core.debug.Anr
 import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
 import com.tefumichangdev.dorodorotimer.di.appModule
 import org.koin.android.ext.koin.androidContext
@@ -10,9 +11,11 @@ class DorodoroApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         DemoConfig.init(this)
-        // TODO(ANR-02): demoMode ON では、ここで重い初期化を eager に走らせて
-        //  Application.onCreate ANR を再現する（分析SDK風 init / Room 同期マイグレーション /
-        //  Koin 定義の eager 生成など）。OFF では lazyModule で先送りする。
+        if (DemoConfig.isOn(Anr.ANR_02)) {
+            // [ANR-02] 起動時にメインで重い同期初期化を eager 実行 → Application.onCreate ANR。
+            //  処方: startKoin を lazyModule 化し、重い初期化を必要時まで先送りする。
+            StartupInitializer.runHeavyEagerInit()
+        }
         startKoin {
             androidContext(this@DorodoroApplication)
             modules(appModule)
