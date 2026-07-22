@@ -19,7 +19,10 @@ class TimerAlarmReceiver : BroadcastReceiver() {
         // [ANR-06] demoMode ON のとき、ここで重い同期処理（DB集計やsleep等）を走らせると
         //  onReceive がメインを固めて BroadcastReceiver ANR を再現できる。今回は正版＝即通知のみ。
         if (DemoConfig.isOn(Anr.ANR_06)) {
-            // TODO(ANR-06): 重い同期処理をここで（例: Thread.sleep / 同期DB集計）。
+            // [ANR-06] onReceive はメインで動く。ここで同期重処理をすると受信枠超過で ANR になる。
+            //  処方: goAsync() で PendingResult を確保しつつ重処理を別スレッドへ逃がした後
+            //        PendingResult.finish() を呼ぶことで onReceive の枠を延長できる。
+            ReceiverWork.heavyBlockingWork()
         }
         TimerEndNotifications.notifyFinished(context)
     }
