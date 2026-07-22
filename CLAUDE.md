@@ -14,6 +14,14 @@
 - `README.md` — スライド事例 ↔ コードの対応表、demoMode 方針、永続化方針
 - Notion「🍅 DorodoroTimer（ANRサンプルアプリ）設計メモ」（DroidKaigi 2026 登壇 配下）と「🚨【ANR】」セッションページ＋その配下のバックログ
 
+### 情報の置き場（DroidKaigi 2026 全体の地図・2026-07-14 交通整理）
+- アプリのコード・ANR マーカー対応表 → **この repo**（README.md）
+- スライド本文・台本・事例検討・構成の決定 → 隣の `../droidkaigi2026-anr-slides`（`anr_session.md` / `cases.md` / `NOTES.md`）
+- 登壇固有の知識（精読メモ・社内調整） → Notion「DroidKaigi 2026 登壇」配下
+- 一般化できる技術知識 → KB `~/knowledge/dev/*.md`
+- タスク → Notion の Tasks DB
+- ⚠️ Notion「ANRスライド構成ダッシュボード」は廃止済み。書き込まない（正本は slides repo の `NOTES.md`）
+
 ## このアプリ固有の超重要ルール
 
 ### demoMode（教材と製品の両立）
