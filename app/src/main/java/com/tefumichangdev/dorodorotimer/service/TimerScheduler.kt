@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 
 /** タイマー終了時刻に1発アラームを予約する。VMはこのIFだけに依存する。 */
 interface TimerScheduler {
@@ -12,8 +13,13 @@ interface TimerScheduler {
 }
 
 /**
- * AlarmManager.setAlarmClock() で正確な1発アラームを予約する実装。
- * setAlarmClock は SCHEDULE_EXACT_ALARM 権限不要で、ステータスバーにアラーム表示も出る。
+ * AlarmManager で終了時刻に1発アラームを予約する実装。
+ * 既定は setAlarmClock()（Doze免除・正確、ステータスバーにアラーム表示も出る）。
+ *
+ * 注意: API 31+ では setAlarmClock も exact alarm 権限（USE_EXACT_ALARM /
+ * SCHEDULE_EXACT_ALARM）が必要。宣言が無い・取り消された端末では SecurityException で
+ * 落ちるため、canScheduleExactAlarms() で確認し、不可のときは setAndAllowWhileIdle()
+ * （精度は落ちるが Doze 中でも発火する）へフォールバックする。
  */
 class AndroidTimerScheduler(private val context: Context) : TimerScheduler {
 
@@ -21,9 +27,18 @@ class AndroidTimerScheduler(private val context: Context) : TimerScheduler {
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     override fun schedule(endAtEpochMs: Long) {
-        val info = AlarmManager.AlarmClockInfo(endAtEpochMs, showIntent())
-        alarmManager.setAlarmClock(info, firePendingIntent())
+        val fire = firePendingIntent()
+        if (canScheduleExact()) {
+            val info = AlarmManager.AlarmClockInfo(endAtEpochMs, showIntent())
+            alarmManager.setAlarmClock(info, fire)
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endAtEpochMs, fire)
+        }
     }
+
+    /** API 31+ は exact alarm 権限が要る。31 未満は常に許可。 */
+    private fun canScheduleExact(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     override fun cancel() {
         alarmManager.cancel(firePendingIntent())
