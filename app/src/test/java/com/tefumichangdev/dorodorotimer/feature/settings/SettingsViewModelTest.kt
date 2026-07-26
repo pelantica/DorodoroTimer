@@ -67,4 +67,41 @@ class SettingsViewModelTest {
         assertEquals(true, vm.state.value.master)
         assertEquals(true, vm.state.value.perAnr[Anr.ANR_02])
     }
+
+    @Test
+    fun setAnr_requiresRestartAnr_setsRestartPromptFor() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        assertEquals(null, vm.state.value.restartPromptFor)
+
+        vm.setAnr(Anr.ANR_02, true)
+
+        assertEquals(true, Anr.ANR_02.requiresRestart)
+        assertEquals(Anr.ANR_02, vm.state.value.restartPromptFor)
+        // フラグ自体は再起動を待たず即座に永続化される
+        assertTrue(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+    }
+
+    @Test
+    fun setAnr_nonRestartAnr_doesNotSetRestartPromptFor() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+
+        vm.setAnr(Anr.ANR_06, true)
+
+        assertEquals(false, Anr.ANR_06.requiresRestart)
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
+
+    @Test
+    fun dismissRestartPrompt_clearsRestartPromptFor() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        vm.setAnr(Anr.ANR_07, true)
+        assertEquals(Anr.ANR_07, vm.state.value.restartPromptFor)
+
+        vm.dismissRestartPrompt()
+
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
 }

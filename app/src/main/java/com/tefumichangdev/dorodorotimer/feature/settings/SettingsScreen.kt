@@ -10,19 +10,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.tefumichangdev.dorodorotimer.R
 import com.tefumichangdev.dorodorotimer.core.debug.Anr
+import com.tefumichangdev.dorodorotimer.core.debug.AppRestarter
 import com.tefumichangdev.dorodorotimer.core.debug.DemoFlagsState
 import org.koin.androidx.compose.koinViewModel
 
@@ -43,11 +47,17 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     SettingsContent(
         modifier = modifier,
         state = state,
         onMaster = viewModel::setMaster,
         onAnr = viewModel::setAnr,
+        onDismissRestartPrompt = viewModel::dismissRestartPrompt,
+        onConfirmRestart = {
+            viewModel.dismissRestartPrompt()
+            AppRestarter.restart(context)
+        },
     )
 }
 
@@ -57,6 +67,8 @@ fun SettingsContent(
     state: DemoFlagsState,
     onMaster: (Boolean) -> Unit,
     onAnr: (Anr, Boolean) -> Unit,
+    onDismissRestartPrompt: () -> Unit = {},
+    onConfirmRestart: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -117,5 +129,31 @@ fun SettingsContent(
                 )
             }
         }
+    }
+
+    val restartPromptFor = state.restartPromptFor
+    if (restartPromptFor != null) {
+        AlertDialog(
+            onDismissRequest = onDismissRestartPrompt,
+            title = { Text(text = stringResource(R.string.settings_restart_dialog_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.settings_restart_dialog_message,
+                        stringResource(restartPromptFor.labelRes()),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmRestart) {
+                    Text(text = stringResource(R.string.settings_restart_dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissRestartPrompt) {
+                    Text(text = stringResource(R.string.settings_restart_dialog_dismiss))
+                }
+            },
+        )
     }
 }

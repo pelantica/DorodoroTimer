@@ -7,6 +7,8 @@ import android.content.Context.MODE_PRIVATE
 data class DemoFlagsState(
     val master: Boolean,
     val perAnr: Map<Anr, Boolean>,
+    /** 直近トグルした [Anr.requiresRestart] == true の事例。非null の間、再起動を促すダイアログを表示する。 */
+    val restartPromptFor: Anr? = null,
 )
 
 /** demoMode フラグへのアクセスインターフェース。テストでは FakeDemoFlags で差し替える。 */
