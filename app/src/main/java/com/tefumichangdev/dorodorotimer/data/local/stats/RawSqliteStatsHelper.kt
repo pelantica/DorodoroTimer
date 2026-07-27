@@ -37,7 +37,7 @@ class RawSqliteStatsHelper(context: Context) :
         onCreate(db)
     }
 
-    /** 単発 INSERT のプリミティブ。[seedForDemoIfEmpty] が非トランザクションでループ呼び出しする。 */
+    /** 単発 INSERT のプリミティブ。[reseedForDemo] が非トランザクションでループ呼び出しする。 */
     fun insertBlocking(phase: String, durationSeconds: Int, completedAtEpochMs: Long) {
         writableDatabase.insert(TABLE_NAME, null, ContentValues().apply {
             put("phase", phase)
@@ -47,7 +47,7 @@ class RawSqliteStatsHelper(context: Context) :
     }
 
     /**
-     * [ANR-01] デモ用シード: テーブルが空のときだけ [rowCount] 件を1件ずつ INSERT する。
+     * [ANR-01] デモ用シード: 既存行を全削除してから [rowCount] 件を1件ずつ INSERT し直す。
      *
      * わざと `beginTransaction()`/`endTransaction()` で囲まない。SQLite は明示トランザクション外の
      * INSERT を「1文＝1トランザクション」として都度コミット（＝都度 fsync）するため、
@@ -57,16 +57,18 @@ class RawSqliteStatsHelper(context: Context) :
      * [BlockingStatsRepository.dailyStats]（Main起点、withContext なし）から呼ばれるため、
      * この重い非トランザクションI/Oがそのままメインスレッドを専有し ANR を誘発する。
      *
+     * **毎回入れ直すのは登壇デモの再現性のため**。「空のときだけ」にすると初回しか ANR せず、
+     * しかも ANR でプロセスが落ちると中途半端な行数が残って以後まったく再現しなくなる
+     * （実機で確認済み: 2166行が残り、集計のみ 8ms で完了して不発になった）。
+     * 毎回リセットすることで、統計タブを開くたびに同じ所要時間で確実に再現できる。
+     *
      * @param rowCount シード行数。実機ANR計測で校正するためデフォルト引数化してある
      *   （[SEED_ROW_COUNT] を変えるだけで負荷を調整できる）。テストは小さい値でロジックのみ検証する。
      */
-    fun seedForDemoIfEmpty(rowCount: Int = SEED_ROW_COUNT) {
+    fun reseedForDemo(rowCount: Int = SEED_ROW_COUNT) {
         val db = writableDatabase
-        val existing = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME", null).use { c ->
-            c.moveToFirst()
-            c.getInt(0)
-        }
-        if (existing > 0) return
+        // 前回のデモデータを消す（DELETE 自体は軽い。重いのは下の非トランザクションINSERTループ）。
+        db.delete(TABLE_NAME, null, null)
 
         val start = System.currentTimeMillis()
         for (i in 0 until rowCount) {
@@ -82,7 +84,7 @@ class RawSqliteStatsHelper(context: Context) :
             insertBlocking(phase, durationSeconds, completedAt)
         }
         val elapsed = System.currentTimeMillis() - start
-        Log.d(TAG, "seedForDemoIfEmpty: inserted $rowCount rows (non-transactional) in ${elapsed}ms")
+        Log.d(TAG, "reseedForDemo: inserted $rowCount rows (non-transactional) in ${elapsed}ms")
     }
 
     /**

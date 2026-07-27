@@ -12,30 +12,39 @@ import org.robolectric.annotation.Config
 /**
  * [BlockingStatsRepository.dailyStats] の委譲・集計を Robolectric（実SQLite）で検証。
  *
- * [RawSqliteStatsHelper.seedForDemoIfEmpty] の既定シード（[RawSqliteStatsHelper.SEED_ROW_COUNT]件）は
- * テストで走らせると重いため、事前に少数行を [RawSqliteStatsHelper.insertBlocking] で直接投入して
- * テーブルを非空にしておく。これによりシードは「既に非空」で即座にスキップされ、
- * dailyStats() の集計ロジックだけを軽量に検証できる。
- * シード自体の重さ・行数パラメータ検証は [RawSqliteStatsHelperTest] が担当する。
+ * 既定のシード行数（[RawSqliteStatsHelper.SEED_ROW_COUNT]＝数千件・非トランザクションINSERT）は
+ * テストで走らせると重いため、コンストラクタに小さい seedRowCount を渡して軽量に検証する
+ * （ANR-02/ANR-06 の「重さはテストしない、決定性だけ検証する」流儀に合わせる）。
+ * シード自体の仕様検証は [RawSqliteStatsHelperTest] が担当する。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class BlockingStatsRepositoryTest {
 
     @Test
-    fun dailyStats_skipsSeedWhenTableNonEmpty_andAggregatesFocusOnly() = runTest {
+    fun dailyStats_reseedsThenAggregatesFocusOnly() = runTest {
         val helper = RawSqliteStatsHelper(RuntimeEnvironment.getApplication())
-        val day1Ms = 86_400_000L
-        helper.insertBlocking(TimerPhase.FOCUS.name, 1500, day1Ms)
-        helper.insertBlocking(TimerPhase.FOCUS.name, 1500, day1Ms + 1000)
-        helper.insertBlocking(TimerPhase.BREAK.name, 300, day1Ms + 2000)
+        val repo = BlockingStatsRepository(helper, seedRowCount = 10)
 
-        val repo = BlockingStatsRepository(helper)
         val result = repo.dailyStats()
 
-        assertEquals(1, result.size)
-        assertEquals(1L, result[0].dateEpochDay)
-        assertEquals(2, result[0].focusCount) // BREAK は除外
-        assertEquals(3000, result[0].totalFocusSeconds)
+        // rowCount=10 のうち 5件に1件(i%5==4)が BREAK＝2件なので、FOCUS 8件だけが集計される
+        assertEquals(8, result.sumOf { it.focusCount })
+        assertEquals(8 * 1500, result.sumOf { it.totalFocusSeconds })
+    }
+
+    @Test
+    fun dailyStats_isRepeatable_previousRowsAreReplaced() = runTest {
+        val helper = RawSqliteStatsHelper(RuntimeEnvironment.getApplication())
+        // 前回のデモや ANR による中断で行が残っていても…
+        helper.insertBlocking(TimerPhase.FOCUS.name, 1500, 86_400_000L)
+        val repo = BlockingStatsRepository(helper, seedRowCount = 10)
+
+        val first = repo.dailyStats().sumOf { it.focusCount }
+        val second = repo.dailyStats().sumOf { it.focusCount }
+
+        // 毎回入れ直すので残骸が混ざらず、何度開いても同じ結果＝登壇デモが再現する
+        assertEquals(8, first)
+        assertEquals(8, second)
     }
 }
