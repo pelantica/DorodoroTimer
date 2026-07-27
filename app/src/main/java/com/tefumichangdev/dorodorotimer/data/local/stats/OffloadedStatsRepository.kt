@@ -6,20 +6,20 @@ import com.tefumichangdev.dorodorotimer.data.local.room.FocusSessionEntity
 import com.tefumichangdev.dorodorotimer.domain.model.DailyStat
 import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
 import com.tefumichangdev.dorodorotimer.domain.repository.StatsRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * demoMode OFF 用の「守る」正版実装（事例① ANR-01 の処方）。
  *
- * Room の suspend DAO は内部で IO スレッドへ逃してくれる上に、
- * withContext(Dispatchers.IO) で明示的にオフロードしているため二重に安全。
+ * Room の suspend DAO が内部で自分のクエリ実行スレッドへ逃がしてくれるため、
+ * 呼び出し側（Main）で何もしなくてもメインスレッドを固めない。
+ * **アプリ側で withContext(IO) は意図的に置いていない**（下記 [dailyStats] のコメント参照）:
+ * 「ライブラリがスレッドを管理してくれるか否か」だけを対比の変数にするため。
  *
  * [BlockingStatsRepository] との対比を成立させるため、demoMode（master）が ON の間は
  * [BlockingStatsRepository] と**同じ [DemoStatsSeed] を、同じ「1件ずつ非トランザクション書き込み」で**
  * 投入する（[insert] は `@Transaction` で束ねない・`insertAll` のような一括版も使わない）。
- * **両実装の差は「withContext(IO) の中で実行しているか」と
- * 「ライブラリ（Room）がスレッドを管理してくれるか否か」だけ**で、データ量・作業量に差はつけない。
+ * **両実装の差は「ライブラリ（Room）がスレッドを管理してくれるか否か」だけ**で、
+ * データ量・作業量・アプリ側のスレッド操作には一切差をつけない。
  *
  * @param seedDemoData デモ用シードを投入するかどうか。**リリース版では必ず false**
  *   （呼び出し元は `di/AppModule.kt` で `DemoConfig.enabled`＝master トグルを渡す）。
@@ -35,14 +35,20 @@ class OffloadedStatsRepository(
     private val seedRowCount: Int = DemoStatsSeed.SEED_ROW_COUNT,
 ) : StatsRepository {
 
-    override suspend fun dailyStats(): List<DailyStat> = withContext(Dispatchers.IO) {
+    override suspend fun dailyStats(): List<DailyStat> {
         // [ANR-01] seedDemoData=false（リリース既定）のときはここを一切通らない＝架空データを作らない。
         if (seedDemoData) {
             reseedForDemo()
         }
-        // 正版: Room suspend DAO ＋ IO ディスパッチャ。ライブラリが守ってくれる側。
+        // [ANR-01] 正版。ここに withContext(IO) は**あえて置いていない**。
+        //  この関数は Main（StatsViewModel.init → viewModelScope）から呼ばれるが、Room の suspend DAO が
+        //  自分のクエリ実行スレッドへ逃がすため、それだけでメインは固まらない＝
+        //  「ライブラリがスレッドを管理してくれる」ことだけが安全性の source になる（事例①の主張そのもの）。
+        //  アプリ側でも逃がしてしまうと「Roomが守ったのか自分で守ったのか」が区別できず対比が濁る。
+        //  なお下の集計は Kotlin 側＝Main で走るが、数千件で 10ms 程度のため実用上も問題ない
+        //  （逆に「Roomが守るのは DAO 呼び出しの中だけ」という境界を示す教材にもなる）。
         val all = dao.getAll()
-        all.filter { it.phase == TimerPhase.FOCUS.name }
+        return all.filter { it.phase == TimerPhase.FOCUS.name }
             .groupBy { it.completedAtEpochMs / 86_400_000L }
             .map { (day, rows) ->
                 DailyStat(
@@ -59,9 +65,7 @@ class OffloadedStatsRepository(
      *
      * [RawSqliteStatsHelper.reseedForDemo]（生SQLite側）と同じ [DemoStatsSeed] ・
      * 同じ「1件ずつ、まとめず」書き込みだが、こちらは呼び出し元の [dailyStats] が
-     * `withContext(Dispatchers.IO)` の中でこれを呼ぶため、メインスレッドを一切専有しない。
-     * すでに呼び出し元の [dailyStats] が [Dispatchers.IO] 上で実行されているため、
-     * ここで改めて IO へ切り替える必要はない。
+     * Room の suspend DAO 経由で書くため、アプリ側で何も逃がさなくてもメインを専有しない。
      *
      * 生SQLite側と同じく毎回リセットしてから入れ直す（登壇デモの再現性のため。詳細は
      * [RawSqliteStatsHelper.reseedForDemo] のKDoc参照）。
