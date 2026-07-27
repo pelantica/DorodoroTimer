@@ -104,4 +104,54 @@ class SettingsViewModelTest {
 
         assertEquals(null, vm.state.value.restartPromptFor)
     }
+
+    @Test
+    fun setAnr_requiresRestartAnr_thenDismiss_revertsFlagAndToggle() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        assertEquals(false, fake.isOn(Anr.ANR_02))
+
+        vm.setAnr(Anr.ANR_02, true)
+        assertTrue(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertTrue(fake.isOn(Anr.ANR_02))
+
+        vm.dismissRestartPrompt()
+
+        // キャンセルしたので、永続化されたフラグも state のトグル表示も元の値(false)に戻る
+        assertFalse(fake.isOn(Anr.ANR_02))
+        assertFalse(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
+
+    @Test
+    fun setAnr_requiresRestartAnr_thenConfirmRestart_keepsFlagAndToggle() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+
+        vm.setAnr(Anr.ANR_02, true)
+        vm.confirmRestartPrompt()
+
+        // 再起動を選んだので、フラグも state のトグル表示も変更後の値(true)のまま維持される
+        assertTrue(fake.isOn(Anr.ANR_02))
+        assertTrue(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
+
+    @Test
+    fun setAnr_nonRequiresRestartAnr_dismissRestartPrompt_doesNotAffectFlag() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+
+        // requiresRestart == false なのでダイアログは出ず、restartPromptFor は null のまま
+        vm.setAnr(Anr.ANR_06, true)
+        assertEquals(null, vm.state.value.restartPromptFor)
+        assertTrue(fake.isOn(Anr.ANR_06))
+
+        // ダイアログが出ていない状態で dismissRestartPrompt が呼ばれても何も起きない（no-op）
+        vm.dismissRestartPrompt()
+
+        assertTrue(fake.isOn(Anr.ANR_06))
+        assertTrue(vm.state.value.perAnr[Anr.ANR_06] ?: false)
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
 }

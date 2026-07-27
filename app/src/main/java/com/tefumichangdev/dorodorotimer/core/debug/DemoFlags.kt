@@ -9,6 +9,12 @@ data class DemoFlagsState(
     val perAnr: Map<Anr, Boolean>,
     /** 直近トグルした [Anr.requiresRestart] == true の事例。非null の間、再起動を促すダイアログを表示する。 */
     val restartPromptFor: Anr? = null,
+    /**
+     * [restartPromptFor] のトグルを変更する直前の値。ダイアログをキャンセルしたときに
+     * この値へ書き戻すことで、再起動しない限り UI の見た目と実際の挙動を一致させる。
+     * [restartPromptFor] が null のときは未使用。
+     */
+    val restartPromptPreviousValue: Boolean = false,
 )
 
 /** demoMode フラグへのアクセスインターフェース。テストでは FakeDemoFlags で差し替える。 */
