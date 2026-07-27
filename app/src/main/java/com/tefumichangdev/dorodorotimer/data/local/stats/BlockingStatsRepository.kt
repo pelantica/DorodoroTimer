@@ -10,12 +10,17 @@ import com.tefumichangdev.dorodorotimer.domain.repository.StatsRepository
  * この suspend 関数を Main スレッドから呼ぶと I/O ＋ 重い集計がメインを専有し ANR になる。
  * withContext(IO) を意図的に挿入しないことがポイント。
  *
+ * 投入するデータ・行数・書き込み方（1件ずつ非トランザクション）は [DemoStatsSeed] ＋
+ * [RawSqliteStatsHelper.reseedForDemo] で [OffloadedStatsRepository] と完全に共通化してある。
+ * **両実装の差は「withContext(IO) の有無」と「ライブラリがスレッドを管理してくれるか否か」だけ**で、
+ * データそのものや作業量には一切差をつけない。これが事例①の対比の肝。
+ *
  * 対比: [OffloadedStatsRepository]（Room suspend DAO ＋ withContext(IO)）は「守ってくれる」側。
  */
 class BlockingStatsRepository(
     private val helper: RawSqliteStatsHelper,
     /** デモ用シード行数。既定は実機校正済みの値、テストは小さい値を渡して軽量に検証する。 */
-    private val seedRowCount: Int = RawSqliteStatsHelper.SEED_ROW_COUNT,
+    private val seedRowCount: Int = DemoStatsSeed.SEED_ROW_COUNT,
 ) : StatsRepository {
 
     override suspend fun dailyStats(): List<DailyStat> {

@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 /**
  * [ANR-01] [RawSqliteStatsHelper.reseedForDemo] のロジックを検証（Robolectric）。
  *
- * デモ既定値（[RawSqliteStatsHelper.SEED_ROW_COUNT]＝数千件・非トランザクションINSERT）は
+ * デモ既定値（[DemoStatsSeed.SEED_ROW_COUNT]＝数千件・非トランザクションINSERT）は
  * テストで走らせると重いため、ここでは小さい rowCount を明示的に渡してロジックのみ検証する
  * （ANR-02/ANR-06 の「重さはテストしない、決定性だけ検証する」流儀に合わせる）。
  */

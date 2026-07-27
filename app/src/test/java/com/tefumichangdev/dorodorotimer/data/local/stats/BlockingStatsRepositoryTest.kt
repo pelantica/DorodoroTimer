@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 /**
  * [BlockingStatsRepository.dailyStats] の委譲・集計を Robolectric（実SQLite）で検証。
  *
- * 既定のシード行数（[RawSqliteStatsHelper.SEED_ROW_COUNT]＝数千件・非トランザクションINSERT）は
+ * 既定のシード行数（[DemoStatsSeed.SEED_ROW_COUNT]＝数千件・非トランザクションINSERT）は
  * テストで走らせると重いため、コンストラクタに小さい seedRowCount を渡して軽量に検証する
  * （ANR-02/ANR-06 の「重さはテストしない、決定性だけ検証する」流儀に合わせる）。
  * シード自体の仕様検証は [RawSqliteStatsHelperTest] が担当する。

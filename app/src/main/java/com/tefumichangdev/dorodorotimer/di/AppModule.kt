@@ -59,9 +59,16 @@ val appModule = module {
     // [ANR-01] demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
     //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
     //  原因が「実装まるごとの性質」なので DI で実装ごと差し替える（規約のDI-swapパターン）。
+    //  seedDemoData には master トグル（DemoConfig.enabled）をそのまま渡す。ANR-01 個別トグルが
+    //  OFF でも master が ON（＝demoMode中）なら Offloaded 側にも同じデモデータを入れて、
+    //  「ANRするかしないか」だけを公平に対比できるようにする。master が OFF（リリース）のときは
+    //  絶対に false になり、架空データを作らない。
     single<StatsRepository> {
-        if (DemoConfig.isOn(Anr.ANR_01)) BlockingStatsRepository(get())
-        else OffloadedStatsRepository(get())
+        if (DemoConfig.isOn(Anr.ANR_01)) {
+            BlockingStatsRepository(get())
+        } else {
+            OffloadedStatsRepository(get(), seedDemoData = DemoConfig.enabled)
+        }
     }
 
     viewModel { TimerViewModel(get(), get(), get(), get()) }
