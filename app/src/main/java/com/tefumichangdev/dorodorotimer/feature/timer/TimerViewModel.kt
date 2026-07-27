@@ -81,7 +81,7 @@ class TimerViewModel(
 
     private fun start() {
         timerState = TimerReducer.start(timerState, now())
-        scheduler.schedule(timerState.runningUntilEpochMs!!)
+        scheduler.schedule(timerState.runningUntilEpochMs!!, timerState.phase)
         persist()
         refreshUi()
         startTicking()

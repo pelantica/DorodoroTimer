@@ -5,10 +5,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
 
 /** タイマー終了時刻に1発アラームを予約する。VMはこのIFだけに依存する。 */
 interface TimerScheduler {
-    fun schedule(endAtEpochMs: Long)
+    /** endAtEpochMs に終わるのが phase（このタイマーが満了した時点のフェーズ）。通知の出し分けに使う。 */
+    fun schedule(endAtEpochMs: Long, phase: TimerPhase)
     fun cancel()
 }
 
@@ -26,8 +28,8 @@ class AndroidTimerScheduler(private val context: Context) : TimerScheduler {
     private val alarmManager: AlarmManager =
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    override fun schedule(endAtEpochMs: Long) {
-        val fire = firePendingIntent()
+    override fun schedule(endAtEpochMs: Long, phase: TimerPhase) {
+        val fire = firePendingIntent(phase)
         if (canScheduleExact()) {
             val info = AlarmManager.AlarmClockInfo(endAtEpochMs, showIntent())
             alarmManager.setAlarmClock(info, fire)
@@ -41,13 +43,18 @@ class AndroidTimerScheduler(private val context: Context) : TimerScheduler {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     override fun cancel() {
-        alarmManager.cancel(firePendingIntent())
+        // PendingIntent の一致判定は component/action/data/requestCode のみで extra は見ないため、
+        // cancel時の phase 値は何であっても同じ PendingIntent にマッチする（FOCUS は便宜上の値）。
+        alarmManager.cancel(firePendingIntent(TimerPhase.FOCUS))
     }
 
-    /** 発火時に飛ばす PendingIntent（BroadcastReceiver宛・軽量に終わる）。 */
-    private fun firePendingIntent(): PendingIntent {
+    /** 発火時に飛ばす PendingIntent（BroadcastReceiver宛・軽量に終わる）。extraに終了フェーズを積む。 */
+    private fun firePendingIntent(phase: TimerPhase): PendingIntent {
         val intent = Intent(context, TimerAlarmReceiver::class.java)
             .setAction(TimerAlarmReceiver.ACTION_TIMER_FINISHED)
+            .putExtra(TimerAlarmReceiver.EXTRA_PHASE, phase.name)
+        // FLAG_UPDATE_CURRENT: requestCode(REQUEST_FIRE)が同じ既存PendingIntentのextraを
+        // 今回のIntentで上書きする。これがないとphaseが最初にscheduleした値のまま固定される。
         return PendingIntent.getBroadcast(
             context,
             REQUEST_FIRE,

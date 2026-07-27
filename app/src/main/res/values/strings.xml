@@ -42,8 +42,10 @@
 
     <!-- timer end notification -->
     <string name="timer_end_channel_name">タイマー終了通知</string>
-    <string name="timer_end_title">セッション終了</string>
-    <string name="timer_end_text">お疲れさま。統計を見て次へ進もう。</string>
+    <string name="timer_end_focus_title">集中おつかれさま</string>
+    <string name="timer_end_focus_text">休憩しましょう</string>
+    <string name="timer_end_break_title">休憩おわり</string>
+    <string name="timer_end_break_text">集中に戻りましょう</string>
 
     <!-- ambient sound (rain) -->
     <string name="timer_sound_start">雨音を鳴らす</string>

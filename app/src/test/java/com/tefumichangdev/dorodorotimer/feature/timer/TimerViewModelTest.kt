@@ -42,8 +42,12 @@ private class FakeTimerStateRepository(initial: TimerState = TimerState()) : Tim
 
 private class FakeTimerScheduler : TimerScheduler {
     val scheduledAt = mutableListOf<Long>()
+    val scheduledPhases = mutableListOf<TimerPhase>()
     var cancelCount = 0
-    override fun schedule(endAtEpochMs: Long) { scheduledAt += endAtEpochMs }
+    override fun schedule(endAtEpochMs: Long, phase: TimerPhase) {
+        scheduledAt += endAtEpochMs
+        scheduledPhases += phase
+    }
     override fun cancel() { cancelCount++ }
 }
 
@@ -79,9 +83,24 @@ class TimerViewModelTest {
         viewModel.toggleRunning()
         testScheduler.runCurrent()
         assertEquals(listOf(10_000L + 90_000L), scheduler.scheduledAt) // now + 90s
+        assertEquals(listOf(TimerPhase.FOCUS), scheduler.scheduledPhases)
         assertTrue(viewModel.uiState.value.isRunning)
         assertEquals(90, viewModel.uiState.value.remainingSeconds) // end - now
         // tick ループが runTest cleanup の advanceUntilIdle で無限ループしないようスコープを止める
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun toggleRunning_whenStoppedDuringBreak_schedulesWithBreakPhase() = runTest(dispatcher) {
+        // 通知の出し分け（休憩終了 vs 集中終了）は schedule に渡すフェーズが正しいことが前提。
+        // BREAK フェーズで start した場合に BREAK が渡ることを確認する。
+        val scheduler = FakeTimerScheduler()
+        val timer = FakeTimerStateRepository(TimerState(TimerPhase.BREAK, remainingSeconds = 60))
+        val viewModel = vm(timer = timer, scheduler = scheduler)
+        testScheduler.runCurrent()
+        viewModel.toggleRunning()
+        testScheduler.runCurrent()
+        assertEquals(listOf(TimerPhase.BREAK), scheduler.scheduledPhases)
         viewModel.viewModelScope.cancel()
     }
 
