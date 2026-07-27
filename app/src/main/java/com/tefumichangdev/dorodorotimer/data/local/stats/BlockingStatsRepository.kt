@@ -16,35 +16,10 @@ class BlockingStatsRepository(private val helper: RawSqliteStatsHelper) : StatsR
 
     override suspend fun dailyStats(): List<DailyStat> {
         // [ANR-01] 生SQLite(SQLiteOpenHelper)は呼んだスレッドで同期実行＝メインを固める。
-        //  withContext(IO) を挟まず、ここ（StatsViewModel.init → Main）でそのまま重I/O＋集計を走らせる。
+        //  withContext(IO) を挟まず、ここ（StatsViewModel.init → Main）でそのまま重I/Oを走らせる。
         //  ライブラリがスレッド管理してくれない側。処方: Room suspend DAO / withContext(IO)。
-        val base = helper.getDailyStatsBlocking()   // 同期I/O（メインをブロック）
-        return heavyAggregate(base)                  // さらに重い同期集計でメインの専有を強調
-    }
-
-    companion object {
-        /**
-         * 教材用の「重い集計」。各 DailyStat を繰り返し再計算することでメインスレッドを
-         * 長時間占有する様子を強調する（ループ回数は ANR を確実に誘発するために大きめに設定）。
-         * 結果は base と等価（同じ値・dateEpochDay 降順）。
-         *
-         * companion object に切り出すことで Robolectric なしの純粋関数テストが可能。
-         */
-        fun heavyAggregate(base: List<DailyStat>): List<DailyStat> {
-            return base.map { stat ->
-                var focusCount = 0
-                var totalFocusSeconds = 0
-                // [ANR-01] 教材用の冗長ループ: 10_000 回の無駄な再計算でメインを長時間専有する
-                repeat(10_000) {
-                    focusCount = stat.focusCount
-                    totalFocusSeconds = stat.totalFocusSeconds
-                }
-                DailyStat(
-                    dateEpochDay = stat.dateEpochDay,
-                    focusCount = focusCount,
-                    totalFocusSeconds = totalFocusSeconds,
-                )
-            }.sortedByDescending { it.dateEpochDay }
-        }
+        // [ANR-01] 初回だけ数千行を1件ずつ非トランザクションINSERTでシード（実機で確実にANRする本体）。
+        helper.seedForDemoIfEmpty()
+        return helper.getDailyStatsBlocking() // 全件取得→Kotlin側で集計（同期I/O、メインをブロック）
     }
 }

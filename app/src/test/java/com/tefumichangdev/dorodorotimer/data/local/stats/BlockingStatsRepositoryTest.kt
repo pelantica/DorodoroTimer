@@ -1,46 +1,41 @@
 package com.tefumichangdev.dorodorotimer.data.local.stats
 
-import com.tefumichangdev.dorodorotimer.domain.model.DailyStat
+import com.tefumichangdev.dorodorotimer.domain.model.TimerPhase
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 /**
- * [BlockingStatsRepository.heavyAggregate] の集計ロジックを純粋関数として検証。
- * RawSqliteStatsHelper は Android Context を要求するため Robolectric なしでは直接テスト不可。
- * heavyAggregate を companion object に切り出し、結果の等価性と降順ソートを確認する。
+ * [BlockingStatsRepository.dailyStats] の委譲・集計を Robolectric（実SQLite）で検証。
+ *
+ * [RawSqliteStatsHelper.seedForDemoIfEmpty] の既定シード（[RawSqliteStatsHelper.SEED_ROW_COUNT]件）は
+ * テストで走らせると重いため、事前に少数行を [RawSqliteStatsHelper.insertBlocking] で直接投入して
+ * テーブルを非空にしておく。これによりシードは「既に非空」で即座にスキップされ、
+ * dailyStats() の集計ロジックだけを軽量に検証できる。
+ * シード自体の重さ・行数パラメータ検証は [RawSqliteStatsHelperTest] が担当する。
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class BlockingStatsRepositoryTest {
 
     @Test
-    fun heavyAggregate_preservesValues() {
-        val input = listOf(
-            DailyStat(dateEpochDay = 1L, focusCount = 3, totalFocusSeconds = 4500),
-            DailyStat(dateEpochDay = 2L, focusCount = 1, totalFocusSeconds = 1500),
-        )
-        val result = BlockingStatsRepository.heavyAggregate(input)
-        assertEquals(2, result.size)
-        // dateEpochDay, focusCount, totalFocusSeconds が保持されているか確認（降順ソート済み）
-        assertEquals(2L, result[0].dateEpochDay)
-        assertEquals(1, result[0].focusCount)
-        assertEquals(1500, result[0].totalFocusSeconds)
-        assertEquals(1L, result[1].dateEpochDay)
-        assertEquals(3, result[1].focusCount)
-        assertEquals(4500, result[1].totalFocusSeconds)
-    }
+    fun dailyStats_skipsSeedWhenTableNonEmpty_andAggregatesFocusOnly() = runTest {
+        val helper = RawSqliteStatsHelper(RuntimeEnvironment.getApplication())
+        val day1Ms = 86_400_000L
+        helper.insertBlocking(TimerPhase.FOCUS.name, 1500, day1Ms)
+        helper.insertBlocking(TimerPhase.FOCUS.name, 1500, day1Ms + 1000)
+        helper.insertBlocking(TimerPhase.BREAK.name, 300, day1Ms + 2000)
 
-    @Test
-    fun heavyAggregate_sortedDescendingByDate() {
-        val input = listOf(
-            DailyStat(dateEpochDay = 5L, focusCount = 1, totalFocusSeconds = 1500),
-            DailyStat(dateEpochDay = 1L, focusCount = 2, totalFocusSeconds = 3000),
-            DailyStat(dateEpochDay = 3L, focusCount = 1, totalFocusSeconds = 1500),
-        )
-        val result = BlockingStatsRepository.heavyAggregate(input)
-        assertEquals(listOf(5L, 3L, 1L), result.map { it.dateEpochDay })
-    }
+        val repo = BlockingStatsRepository(helper)
+        val result = repo.dailyStats()
 
-    @Test
-    fun heavyAggregate_emptyList_returnsEmpty() {
-        assertEquals(emptyList<DailyStat>(), BlockingStatsRepository.heavyAggregate(emptyList()))
+        assertEquals(1, result.size)
+        assertEquals(1L, result[0].dateEpochDay)
+        assertEquals(2, result[0].focusCount) // BREAK は除外
+        assertEquals(3000, result[0].totalFocusSeconds)
     }
 }
