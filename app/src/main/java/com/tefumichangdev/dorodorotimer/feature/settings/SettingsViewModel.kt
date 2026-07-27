@@ -20,6 +20,13 @@ class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
 
     fun setAnr(anr: Anr, on: Boolean) {
         flags.setOn(anr, on)
-        _state.value = flags.snapshot()
+        _state.value = flags.snapshot().copy(
+            restartPromptFor = if (anr.requiresRestart) anr else null,
+        )
+    }
+
+    /** 再起動ダイアログを閉じる（[AppRestarter] の呼び出しは Context を持つ Screen 側の責務）。 */
+    fun dismissRestartPrompt() {
+        _state.value = _state.value.copy(restartPromptFor = null)
     }
 }

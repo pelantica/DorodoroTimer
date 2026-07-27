@@ -27,6 +27,10 @@
     <string name="settings_anr_06_label">ANR-06 BroadcastReceiver</string>
     <string name="settings_anr_07_label">ANR-07 起動時クラスロード集中</string>
     <string name="settings_anr_fgs_label">ANR-FGS startForeground 5秒ルール</string>
+    <string name="settings_restart_dialog_title">アプリの再起動が必要です</string>
+    <string name="settings_restart_dialog_message">「%1$s」はアプリ起動時に配線される事例（DIのキャッシュや Application.onCreate の初期化）のため、設定はすでに保存されましたが、動作に反映するにはアプリの再起動が必要です。「あとで」を選ぶと次回起動時から反映されます。</string>
+    <string name="settings_restart_dialog_confirm">再起動する</string>
+    <string name="settings_restart_dialog_dismiss">あとで</string>
 
     <!-- duration picker dialog -->
     <string name="duration_dialog_title">時間を設定</string>
