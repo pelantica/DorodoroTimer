@@ -13,8 +13,15 @@
     <string name="nav_stats">統計</string>
     <string name="nav_settings">設定</string>
 
-    <!-- stats (placeholder) -->
+    <!-- stats -->
     <string name="stats_placeholder">セッション統計（実装予定）</string>
+    <string name="stats_empty">まだ記録がありません</string>
+    <!-- stats row: %1$d=年, %2$d=月, %3$d=日 -->
+    <string name="stats_row_date">%1$d/%2$d/%3$d</string>
+    <!-- stats row: %1$d=集中回数 -->
+    <string name="stats_row_focus_count">集中 %1$d 回</string>
+    <!-- stats row: %1$d=合計分数 -->
+    <string name="stats_row_total_minutes">合計 %1$d 分</string>
 
     <!-- settings -->
     <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
