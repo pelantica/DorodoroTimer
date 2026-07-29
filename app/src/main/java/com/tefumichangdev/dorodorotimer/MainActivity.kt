@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        selectedTab = intent.toStartTab()
+        selectedTab = intent.toDeepLinkTab() ?: Tab.TIMER
         setContent {
             DorodoroTimerTheme {
                 DorodoroApp(
@@ -49,12 +49,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // launchMode=singleTop のため、起動中に通知をタップした場合はここに来る。
-        selectedTab = intent.toStartTab()
+        // launchMode=singleTop のため、通知タップだけでなく
+        // ランチャーからの復帰（ACTION_MAIN・data なし）でもここに来る。
+        // ディープリンクでないときはタブ指定なし＝表示中のタブを維持する
+        // （無条件に代入すると、統計タブを見ていてもタイマーに引き戻される）。
+        intent.toDeepLinkTab()?.let { selectedTab = it }
     }
 }
 
-private enum class Tab(val labelRes: Int, val icon: ImageVector) {
+internal enum class Tab(val labelRes: Int, val icon: ImageVector) {
     TIMER(R.string.nav_timer, Icons.Filled.Timer),
     STATS(R.string.nav_stats, Icons.Filled.BarChart),
     SETTINGS(R.string.nav_settings, Icons.Filled.Settings),
@@ -87,12 +90,17 @@ private fun DorodoroApp(selectedTab: Tab = Tab.TIMER, onSelectTab: (Tab) -> Unit
     }
 }
 
-private fun Intent?.toStartTab(): Tab {
+/**
+ * dorodoro:// のディープリンクが指すタブ。ディープリンクでない（ランチャー起動など）、
+ * または未知の host のときは null＝「タブの指定なし」を意味し、呼び出し側が
+ * 起動時は TIMER、復帰時は現在のタブ維持、と解釈する。
+ */
+internal fun Intent?.toDeepLinkTab(): Tab? {
     val data: Uri? = this?.data
-    if (data?.scheme != "dorodoro") return Tab.TIMER
+    if (data?.scheme != "dorodoro") return null
     return when (data.host) {
         "stats" -> Tab.STATS
         "timer" -> Tab.TIMER
-        else -> Tab.TIMER // 不明な host は現状維持でタイマーへフォールバック
+        else -> null
     }
 }
