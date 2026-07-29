@@ -1,4 +1,4 @@
-package com.tefumichangdev.dorodorotimer.app.startup
+package com.pelantica.dorodorotimer.app.startup
 
 import android.content.Context
 
@@ -6,7 +6,7 @@ import android.content.Context
  * [ANR-02] 分析SDK風の初期化。実SDKが起動時にやりがちな「端末フィンガープリント算出」を、
  * SHA-256 ハッシュチェーン（[StartupWork.hashChain]、CPUバウンド）で模す。
  *
- * 呼び出し側（[com.tefumichangdev.dorodorotimer.app.DorodoroApplication.onCreate]）からは
+ * 呼び出し側（[com.pelantica.dorodorotimer.app.DorodoroApplication.onCreate]）からは
  * `AnalyticsInitializer.init(context)` という無害な1行にしか見えない。
  *
  * 処方: Koin lazyModule 化、あるいは初期化自体を必要時まで先送りする。

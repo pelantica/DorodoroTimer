@@ -1,4 +1,4 @@
-package com.tefumichangdev.dorodorotimer.app.startup
+package com.pelantica.dorodorotimer.app.startup
 
 import android.util.Log
 import java.io.File
@@ -9,7 +9,7 @@ import java.security.MessageDigest
  * [ANR-02] 「SDK風」初期化オブジェクト群（[AnalyticsInitializer] など）が使う共通の重い処理プリミティブ。
  *
  * 個々の SDK 風オブジェクトが同じロジックを重複させないよう、CPU バウンド処理と I/O バウンド処理を
- * ここに集約する（[com.tefumichangdev.dorodorotimer.data.local.stats.DemoStatsSeed] と同じ考え方）。
+ * ここに集約する（[com.pelantica.dorodorotimer.data.local.stats.DemoStatsSeed] と同じ考え方）。
  * 各 SDK 風オブジェクトの役割は「どのプリミティブを・どのパラメータで呼ぶか」だけ。
  */
 internal object StartupWork {
@@ -37,7 +37,7 @@ internal object StartupWork {
      * [ANR-02] I/O バウンドな「同期ファイルI/Oバースト」。[iterations] 回、
      * `open → write → fsync → read → delete` を1件ずつ繰り返す。
      *
-     * [com.tefumichangdev.dorodorotimer.data.local.stats.RawSqliteStatsHelper.reseedForDemo] の
+     * [com.pelantica.dorodorotimer.data.local.stats.RawSqliteStatsHelper.reseedForDemo] の
      * 「トランザクションで囲まない INSERT ループ（1件ごとに fsync）」と同じ理屈で、
      * 都度 `fsync` することで `Thread.sleep` のような偽の重りではなく実際のディスクI/Oコストを作る。
      * 「設定ファイルを都度読み書きするラッパー」（クラッシュ報告SDKやAB実験SDKが起動時にやりがちな

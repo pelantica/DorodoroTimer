@@ -1,4 +1,4 @@
-package com.tefumichangdev.dorodorotimer.app.startup
+package com.pelantica.dorodorotimer.app.startup
 
 import android.content.Context
 import java.io.File

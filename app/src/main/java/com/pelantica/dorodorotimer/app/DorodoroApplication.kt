@@ -1,17 +1,17 @@
-package com.tefumichangdev.dorodorotimer.app
+package com.pelantica.dorodorotimer.app
 
 import android.app.Application
 import android.util.Log
-import com.tefumichangdev.dorodorotimer.app.startup.AnalyticsInitializer
-import com.tefumichangdev.dorodorotimer.app.startup.CrashReportingInitializer
-import com.tefumichangdev.dorodorotimer.app.startup.FeatureFlagInitializer
-import com.tefumichangdev.dorodorotimer.app.startup.ImageLoaderInitializer
-import com.tefumichangdev.dorodorotimer.app.startup.PerformanceMonitorInitializer
-import com.tefumichangdev.dorodorotimer.app.startup.RemoteConfigInitializer
-import com.tefumichangdev.dorodorotimer.core.debug.Anr
-import com.tefumichangdev.dorodorotimer.core.debug.DemoConfig
-import com.tefumichangdev.dorodorotimer.di.appModule
-import com.tefumichangdev.dorodorotimer.service.work.AnrLogUploadScheduler
+import com.pelantica.dorodorotimer.app.startup.AnalyticsInitializer
+import com.pelantica.dorodorotimer.app.startup.CrashReportingInitializer
+import com.pelantica.dorodorotimer.app.startup.FeatureFlagInitializer
+import com.pelantica.dorodorotimer.app.startup.ImageLoaderInitializer
+import com.pelantica.dorodorotimer.app.startup.PerformanceMonitorInitializer
+import com.pelantica.dorodorotimer.app.startup.RemoteConfigInitializer
+import com.pelantica.dorodorotimer.core.debug.Anr
+import com.pelantica.dorodorotimer.core.debug.DemoConfig
+import com.pelantica.dorodorotimer.di.appModule
+import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -31,7 +31,7 @@ class DorodoroApplication : Application() {
             //   - OFF: TotalTime 1497〜2222ms（このブロックが丸ごとスキップされるため無関係）。
             //   - 差分: 約7300〜8400ms。目標の5000ms超を安定して達成。
             //   - 実機ANR確認: 起動中に `adb shell input keyevent KEYCODE_DPAD_CENTER` を送ると
-            //     `ActivityManager: ANR in com.tefumichangdev.dorodorotimer ... Reason: Input
+            //     `ActivityManager: ANR in com.pelantica.dorodorotimer ... Reason: Input
             //     dispatching timed out (Application does not have a focused window).` が発生
             //     （logcat実測）。一方 `adb shell input tap` の単純タップは Android 12+ の
             //     スプラッシュ用 `ActivityRecordInputSink`（NO_INPUT_CHANNEL）に吸収され ANR を

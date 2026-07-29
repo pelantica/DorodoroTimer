@@ -1,4 +1,4 @@
-package com.tefumichangdev.dorodorotimer.app.startup
+package com.pelantica.dorodorotimer.app.startup
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,7 +13,7 @@ import java.io.File
 /**
  * [ANR-02] [StartupWork] のユニットテスト。
  * 「重さ」自体はテストせず、小さいラウンド数/反復回数でロジック（決定性・後始末）のみを検証する
- * （[com.tefumichangdev.dorodorotimer.data.local.stats.RawSqliteStatsHelperTest] と同じ流儀）。
+ * （[com.pelantica.dorodorotimer.data.local.stats.RawSqliteStatsHelperTest] と同じ流儀）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])

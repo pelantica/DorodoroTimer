@@ -1,4 +1,4 @@
-package com.tefumichangdev.dorodorotimer.app.startup
+package com.pelantica.dorodorotimer.app.startup
 
 import android.content.Context
 
@@ -17,7 +17,7 @@ import android.content.Context
  * **実機校正で踏んだ罠**: 値を毎回同じ文字列（`"default_value_$i"`）で書くと、2回目以降の起動では
  * `SharedPreferencesImpl` が「前回コミット済みの値と同じ＝変更なし」と判定してディスク書き込み自体を
  * スキップしてしまい、初回だけ約930ms、2回目以降は約10msまで激減して**再現性がなくなった**
- * （実測：1回目 928ms → 2回目 12ms、3回目 8ms）。[com.tefumichangdev.dorodorotimer.data.local.stats.RawSqliteStatsHelper.reseedForDemo]
+ * （実測：1回目 928ms → 2回目 12ms、3回目 8ms）。[com.pelantica.dorodorotimer.data.local.stats.RawSqliteStatsHelper.reseedForDemo]
  * が「毎回リセットして入れ直す」のと同じ理屈で、値に [runMarker] を混ぜて起動毎に必ず内容を変え、
  * 毎回本物のディスク書き込みが起きるようにしている。
  */
