@@ -60,7 +60,7 @@
 - **画面ごとに1つの ViewModel**。ViewModel は対応する画面と同じパッケージに置く。
 
 ### パッケージ構成
-ルート：`com.tefumichangdev.dorodorotimer`
+ルート：`com.pelantica.dorodorotimer`
 - `app`（Application・Koin 起動）/ `di`（Koin モジュール）/ `core/debug`（DemoConfig）/ `core/ui`（Theme）
 - `feature/timer|stats|settings`（画面単位）/ `data/local`（Room・SQLDelight・DataStore）/ `domain/model` / `service`
 
