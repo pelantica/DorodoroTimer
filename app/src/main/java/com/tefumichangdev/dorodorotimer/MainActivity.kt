@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,14 +29,28 @@ import com.tefumichangdev.dorodorotimer.feature.stats.StatsScreen
 import com.tefumichangdev.dorodorotimer.feature.timer.TimerScreen
 
 class MainActivity : ComponentActivity() {
+    // 選択中タブの真実はここに一本化する。Compose 側で remember すると、
+    // 同じタブを指す通知を続けてタップしたとき（値が変わらないため）再反映されない。
+    private var selectedTab by mutableStateOf(Tab.TIMER)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val startTab = intent.toStartTab()
+        selectedTab = intent.toStartTab()
         setContent {
             DorodoroTimerTheme {
-                DorodoroApp(startTab = startTab)
+                DorodoroApp(
+                    selectedTab = selectedTab,
+                    onSelectTab = { selectedTab = it },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // launchMode=singleTop のため、起動中に通知をタップした場合はここに来る。
+        selectedTab = intent.toStartTab()
     }
 }
 
@@ -48,15 +61,14 @@ private enum class Tab(val labelRes: Int, val icon: ImageVector) {
 }
 
 @Composable
-private fun DorodoroApp(startTab: Tab = Tab.TIMER) {
-    var current by remember { mutableStateOf(startTab) }
+private fun DorodoroApp(selectedTab: Tab = Tab.TIMER, onSelectTab: (Tab) -> Unit = {}) {
     Scaffold(
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { tab ->
                     NavigationBarItem(
-                        selected = current == tab,
-                        onClick = { current = tab },
+                        selected = selectedTab == tab,
+                        onClick = { onSelectTab(tab) },
                         icon = { Icon(tab.icon, contentDescription = null) },
                         label = { Text(stringResource(tab.labelRes)) },
                     )
@@ -67,7 +79,7 @@ private fun DorodoroApp(startTab: Tab = Tab.TIMER) {
         val contentModifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-        when (current) {
+        when (selectedTab) {
             Tab.TIMER -> TimerScreen(modifier = contentModifier)
             Tab.STATS -> StatsScreen(modifier = contentModifier)
             Tab.SETTINGS -> SettingsScreen(modifier = contentModifier)
@@ -77,5 +89,10 @@ private fun DorodoroApp(startTab: Tab = Tab.TIMER) {
 
 private fun Intent?.toStartTab(): Tab {
     val data: Uri? = this?.data
-    return if (data?.scheme == "dorodoro" && data.host == "stats") Tab.STATS else Tab.TIMER
+    if (data?.scheme != "dorodoro") return Tab.TIMER
+    return when (data.host) {
+        "stats" -> Tab.STATS
+        "timer" -> Tab.TIMER
+        else -> Tab.TIMER // 不明な host は現状維持でタイマーへフォールバック
+    }
 }
