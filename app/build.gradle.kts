@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.tefumichangdev.dorodorotimer"
+    namespace = "com.pelantica.dorodorotimer"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -16,7 +16,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.tefumichangdev.dorodorotimer"
+        applicationId = "com.pelantica.dorodorotimer"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -48,11 +48,11 @@ android {
 
 // TODO(ANR-01): SQLDelight 再有効化時にこのブロックを戻す。
 //  「ライブラリがスレッドを管理してくれない」側の対比に使う永続化。生成コードは
-//  com.tefumichangdev.dorodorotimer.db に出力。src/main/sqldelight/.../Stats.sq は配置済み。
+//  com.pelantica.dorodorotimer.db に出力。src/main/sqldelight/.../Stats.sq は配置済み。
 // sqldelight {
 //     databases {
 //         create("StatsDatabase") {
-//             packageName.set("com.tefumichangdev.dorodorotimer.db")
+//             packageName.set("com.pelantica.dorodorotimer.db")
 //         }
 //     }
 // }
@@ -92,6 +92,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

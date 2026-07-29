@@ -14,12 +14,22 @@
 - `README.md` — スライド事例 ↔ コードの対応表、demoMode 方針、永続化方針
 - Notion「🍅 DorodoroTimer（ANRサンプルアプリ）設計メモ」（DroidKaigi 2026 登壇 配下）と「🚨【ANR】」セッションページ＋その配下のバックログ
 
+### 情報の置き場（DroidKaigi 2026 全体の地図・2026-07-14 交通整理）
+- アプリのコード・ANR マーカー対応表 → **この repo**（README.md）
+- スライド本文・台本・事例検討・構成の決定 → 隣の `../droidkaigi2026-anr-slides`（`anr_session.md` / `cases.md` / `NOTES.md`）
+- 登壇固有の知識（精読メモ・社内調整） → Notion「DroidKaigi 2026 登壇」配下
+- 一般化できる技術知識 → KB `~/knowledge/dev/*.md`
+- タスク → Notion の Tasks DB
+- ⚠️ Notion「ANRスライド構成ダッシュボード」は廃止済み。書き込まない（正本は slides repo の `NOTES.md`）
+
 ## このアプリ固有の超重要ルール
 
 ### demoMode（教材と製品の両立）
-- 標準コードは**正しい（リリース品質）実装**にする。`DemoConfig.enabled`（設定画面トグル）が **ON のときだけ** ANR 誘発経路を通る。リリースは常に OFF。
-- **分岐は原則 DI（Koin）で実装ごと差し替える**（呼び出し側に分岐を撒かない）。例：`StatsRepository` に ANR版 と 正版 の2実装、demoMode でどちらを注入するか切替。
-- DI で差し替えにくい局所（`commit()`/`apply()`、`onReceive` 内、`Application.onCreate` の初期化順序、`startForeground` の有無 等）だけ、その場に `if (DemoConfig.enabled) { /* [ANR-xx] */ }`。
+- 標準コードは**正しい（リリース品質）実装**にする。マスタートグル＋ ANR ごとの個別トグル（設定画面、`DemoConfig.isOn(Anr.XX)`）が **ON のときだけ** ANR 誘発経路を通る。リリースは常に OFF。
+- **分岐の入れ方は「ANR の原因の粒度」に合わせる**（目的は呼び出し側に分岐を撒かないこと。DI かローカル `if` かは手段であって原則ではない）。
+  - 原因が**実装まるごとの性質**（例: DB ライブラリがスレッドを管理するか否か＝事例①）なら → **DI（Koin）で実装ごと差し替える**。正版と ANR 版の2実装を用意し、demoMode でどちらを注入するか切替。2実装の差分そのものがレッスンになる。
+  - 原因が**クラス内の局所操作**（`commit()`/`apply()`、`onReceive` 内、`Application.onCreate` の初期化順序、`startForeground` の有無 等）なら → その場に `if (DemoConfig.isOn(Anr.XX)) { /* [ANR-xx] */ }`。共有クラスを丸ごと複製して1行だけ変えるより、ANR 箇所がマーカー数行で一目で分かる。
+  - 迷ったら「**ANR するコードとしないコードの差分が最小・最明瞭になる方**」を選ぶ。
 - **ANR を仕込むコードには必ず `// [ANR-xx] ...` マーカーコメントを付け、README の対応表に1行追加する**（file:line・処方・スライド#）。
 
 ### 永続化の使い分け（事例①の核）
@@ -50,7 +60,7 @@
 - **画面ごとに1つの ViewModel**。ViewModel は対応する画面と同じパッケージに置く。
 
 ### パッケージ構成
-ルート：`com.tefumichangdev.dorodorotimer`
+ルート：`com.pelantica.dorodorotimer`
 - `app`（Application・Koin 起動）/ `di`（Koin モジュール）/ `core/debug`（DemoConfig）/ `core/ui`（Theme）
 - `feature/timer|stats|settings`（画面単位）/ `data/local`（Room・SQLDelight・DataStore）/ `domain/model` / `service`
 

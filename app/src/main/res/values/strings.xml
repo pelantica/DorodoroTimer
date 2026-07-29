@@ -13,8 +13,15 @@
     <string name="nav_stats">統計</string>
     <string name="nav_settings">設定</string>
 
-    <!-- stats (placeholder) -->
+    <!-- stats -->
     <string name="stats_placeholder">セッション統計（実装予定）</string>
+    <string name="stats_empty">まだ記録がありません</string>
+    <!-- stats row: %1$d=年, %2$d=月, %3$d=日 -->
+    <string name="stats_row_date">%1$d/%2$d/%3$d</string>
+    <!-- stats row: %1$d=集中回数 -->
+    <string name="stats_row_focus_count">集中 %1$d 回</string>
+    <!-- stats row: %1$d=合計分数 -->
+    <string name="stats_row_total_minutes">合計 %1$d 分</string>
 
     <!-- settings -->
     <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
@@ -27,6 +34,10 @@
     <string name="settings_anr_06_label">ANR-06 BroadcastReceiver</string>
     <string name="settings_anr_07_label">ANR-07 起動時クラスロード集中</string>
     <string name="settings_anr_fgs_label">ANR-FGS startForeground 5秒ルール</string>
+    <string name="settings_restart_dialog_title">アプリの再起動が必要です</string>
+    <string name="settings_restart_dialog_message">「%1$s」はアプリ起動時に配線される事例（DIのキャッシュや Application.onCreate の初期化）のため、設定はすでに保存されましたが、動作に反映するにはアプリの再起動が必要です。「あとで」を選ぶと次回起動時から反映されます。</string>
+    <string name="settings_restart_dialog_confirm">再起動する</string>
+    <string name="settings_restart_dialog_dismiss">あとで</string>
 
     <!-- duration picker dialog -->
     <string name="duration_dialog_title">時間を設定</string>

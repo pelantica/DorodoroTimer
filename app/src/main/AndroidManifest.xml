@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 端末再起動でリマインダ再設定（事例⑥ BroadcastReceiver の舞台） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- タイマー終了アラーム（setAlarmClock）に必須。API 33+ は USE_EXACT_ALARM（インストール時付与・
+         アラーム/タイマーがコア機能のアプリ向け）、31-32 は自動付与の SCHEDULE_EXACT_ALARM でカバー。 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
 
     <application
         android:name=".app.DorodoroApplication"
