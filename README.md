@@ -54,7 +54,7 @@ Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + SQLDelight + DataSto
 ## パッケージ構成
 
 ```
-com.tefumichangdev.dorodorotimer
+com.pelantica.dorodorotimer
 ├── app/            Application（Koin 起動）
 ├── di/             Koin モジュール（demoMode 差し替え／lazyModule 処方の場）
 ├── core/debug/     DemoConfig（ANR再現モードのフラグ）
