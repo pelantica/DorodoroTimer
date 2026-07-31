@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Firebase Crashlytics（ANRレポートの収集）。google-services は google-services.json を読む。
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
     // TODO(ANR-01): SQLDelight を再有効化する。2.1.0 は AGP 9.1.0 で BaseExtension 参照エラーになるため
     //  一旦無効化中（AGP 9 対応版が出たら戻す／またはサンプルだけ AGP を下げる）。
     //  alias(libs.plugins.sqldelight)
@@ -89,6 +92,12 @@ dependencies {
     // TODO(ANR-01): SQLDelight 再有効化時に戻す（AGP 9 未対応のため無効化中）
     // implementation(libs.sqldelight.android.driver)
     // implementation(libs.sqldelight.coroutines.extensions)
+    // Firebase Crashlytics: ANRレポートを ApplicationExitInfo 経由で収集し、
+    //  「ダッシュボードにANRがどう表示されるか」を実物で確認するために導入（登壇用）。
+    //  analytics は Crashlytics がクラッシュ前のユーザー行動を紐付けるために併せて入れる。
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

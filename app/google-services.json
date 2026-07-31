@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "35145499737",
+    "project_id": "dorodorotimer",
+    "storage_bucket": "dorodorotimer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:35145499737:android:6b36aac6074d4363c11d48",
+        "android_client_info": {
+          "package_name": "com.pelantica.dorodorotimer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuk9UHbKNCI1JNrD2u2_IQMVNgkaKzAOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
