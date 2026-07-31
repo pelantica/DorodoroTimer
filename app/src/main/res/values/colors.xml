@@ -8,6 +8,6 @@
     <color name="warm_background">#FBF6F3</color>
     <!-- WarmSurface。ボトムナビの帯と揃えてナビゲーションバーを繋げる。 -->
     <color name="warm_surface">#F7E9E5</color>
-    <!-- TomatoRed。アダプティブアイコンの背景。 -->
-    <color name="ic_launcher_background">#C0392B</color>
+    <!-- アダプティブアイコンの背景。前景のトマトが赤なので、地は WarmBackground と同じクリーム。 -->
+    <color name="ic_launcher_background">#FBF6F3</color>
 </resources>

@@ -1,29 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- API 25 以下向けのランチャーアイコン（マスクが効かないので背景も自前で描く）。
      API 26+ は mipmap-anydpi-v26/ic_launcher.xml のアダプティブアイコンが使われる。
-     時計は前景（ic_launcher_foreground）と同じ図形で、マスクを考えなくてよい分だけ大きめ。 -->
+     絵柄は ic_launcher_foreground と同じで、円マスクを考えなくてよい分だけ
+     1.2 倍に拡大している（translate は中心 54 を保つ値＝54 - 54 * 1.2）。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- トマト赤の角丸背景（@color/ic_launcher_background と同じ値）。 -->
+    <!-- クリームの角丸背景（@color/ic_launcher_background と同じ値）。 -->
     <path
-        android:fillColor="#C0392B"
+        android:fillColor="#FBF6F3"
         android:pathData="M24,0L84,0A24,24 0 0 1 108,24L108,84A24,24 0 0 1 84,108L24,108A24,24 0 0 1 0,84L0,24A24,24 0 0 1 24,0Z" />
     <group
-        android:scaleX="3.2"
-        android:scaleY="3.2"
-        android:translateX="15.6"
-        android:translateY="15.6">
+        android:scaleX="1.2"
+        android:scaleY="1.2"
+        android:translateX="-10.8"
+        android:translateY="-10.8">
+        <path
+            android:fillColor="#C0392B"
+            android:pathData="M28,45 A26,24 0 1 0 80,45 A26,24 0 1 0 28,45 Z" />
+        <path
+            android:fillColor="#C0392B"
+            android:pathData="M34.5,50 L34.5,69.5 A6.5,6.5 0 0 0 47.5,69.5 L47.5,50 Z" />
+        <path
+            android:fillColor="#C0392B"
+            android:pathData="M48,52 L48,77 A7,7 0 0 0 62,77 L62,52 Z" />
+        <path
+            android:fillColor="#C0392B"
+            android:pathData="M62.5,50 L62.5,66.5 A5.5,5.5 0 0 0 73.5,66.5 L73.5,50 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M48,29 A6,6 0 1 0 60,29 A6,6 0 1 0 48,29 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M52,26 L34,28 L52,33 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M52,27 L41,39 L55,32 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M50,29 L54,41 L59,29 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M56,27 L67,39 L53,32 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M56,26 L74,28 L56,33 Z" />
+        <path
+            android:fillColor="#4E8C4A"
+            android:pathData="M51,20 L51,31 L57,31 L57,20 A3,3 0 0 0 51,20 Z" />
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M12,2A10,10 0,1 0,22 12A10,10 0,0 0,12 2ZM12,20A8,8 0,1 1,20 12A8,8 0,0 1,12 20Z" />
+            android:pathData="M41.46,47.84 L49.46,45.84 A1.9,1.9 0 0 0 48.54,42.16 L40.54,44.16 A1.9,1.9 0 0 0 41.46,47.84 Z" />
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M12.5,7L11,7v6l5.2,3.1l0.8,-1.3l-4.5,-2.7z" />
+            android:pathData="M67.46,44.16 L59.46,42.16 A1.9,1.9 0 0 0 58.54,45.84 L66.54,47.84 A1.9,1.9 0 0 0 67.46,44.16 Z" />
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M9,1h6v2h-6z" />
+            android:pathData="M51.5,54.4 L56.5,54.4 A1.4,1.4 0 0 0 56.5,51.6 L51.5,51.6 A1.4,1.4 0 0 0 51.5,54.4 Z" />
     </group>
 </vector>

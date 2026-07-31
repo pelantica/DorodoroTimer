@@ -1,28 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- アダプティブアイコンの前景。今までの時計をそのまま白にしたもの。
-     元の時計は 24x24 の座標系で描かれているので、group でアダプティブの
-     108x108 に拡大し、マスクで欠けない中央 72x72 のセーフゾーンに収めている。
-     translate は文字盤の中心 (12, 12) が (54, 54) に来る値＝54 - 12 * scale。
-     scale は文字盤の直径が 20 * 2.6 = 52（セーフゾーン 72 の 7 割）になる大きさ。
-     これ以上大きくすると円マスクで上のつまみが欠ける。 -->
+<!-- アダプティブアイコンの前景：溶けかけたトマト（ジト目）。
+     アプリ名の「ドロドロ」＝溶けている様子、「ポモドーロ」＝トマトから。
+
+     座標系は 108x108。ランチャーの円マスクで欠けないよう、
+     図形はすべて 中心(54,54)・半径36 の円の内側に収めてある
+     （最遠が 軸の先端 (54,20) と 葉の先 (34,28)/(74,28) で約34、
+     いちばん長い滴の先 (46,82) で約29）。これ以上大きくはできない。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="2.6"
-        android:scaleY="2.6"
-        android:translateX="22.8"
-        android:translateY="22.8">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M12,2A10,10 0,1 0,22 12A10,10 0,0 0,12 2ZM12,20A8,8 0,1 1,20 12A8,8 0,0 1,12 20Z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M12.5,7L11,7v6l5.2,3.1l0.8,-1.3l-4.5,-2.7z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M9,1h6v2h-6z" />
-    </group>
+
+    <!-- 本体。真円だと硬いので、少し横長の楕円にしている（中心 54,45 / 26x24）。 -->
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M28,45 A26,24 0 1 0 80,45 A26,24 0 1 0 28,45 Z" />
+
+    <!-- 溶けて垂れた部分。本体と同色で重ねて1つの輪郭に見せる。
+         横幅は本体（x=28〜80）より内側の x=34.5〜73.5 に収める。
+         本体の端まで広げると丸いシルエットが潰れて四角い塊に見えてしまう。
+         深さは不揃いにし、本体の下端よりはっきり下まで垂らして「とろけ」を出す。 -->
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M34.5,50 L34.5,69.5 A6.5,6.5 0 0 0 47.5,69.5 L47.5,50 Z" />
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M48,52 L48,77 A7,7 0 0 0 62,77 L62,52 Z" />
+    <path
+        android:fillColor="#C0392B"
+        android:pathData="M62.5,50 L62.5,66.5 A5.5,5.5 0 0 0 73.5,66.5 L73.5,50 Z" />
+
+    <!-- ヘタ。小さいとただの緑の点になってトマトに見えないので、
+         本体の肩に乗るくらい大きく広げる。 -->
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M48,29 A6,6 0 1 0 60,29 A6,6 0 1 0 48,29 Z" />
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M52,26 L34,28 L52,33 Z" />
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M52,27 L41,39 L55,32 Z" />
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M50,29 L54,41 L59,29 Z" />
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M56,27 L67,39 L53,32 Z" />
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M56,26 L74,28 L56,33 Z" />
+    <!-- 軸 -->
+    <path
+        android:fillColor="#4E8C4A"
+        android:pathData="M51,20 L51,31 L57,31 L57,20 A3,3 0 0 0 51,20 Z" />
+
+    <!-- ジト目。外側を下げて垂れさせるのがポイント。
+         逆（内側を下げる）にすると吊り目になって、滴と相まって
+         ドクロのように見えてしまう。 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M41.46,47.84 L49.46,45.84 A1.9,1.9 0 0 0 48.54,42.16 L40.54,44.16 A1.9,1.9 0 0 0 41.46,47.84 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M67.46,44.16 L59.46,42.16 A1.9,1.9 0 0 0 58.54,45.84 L66.54,47.84 A1.9,1.9 0 0 0 67.46,44.16 Z" />
+    <!-- 口。大きいと顔が主張しすぎるので、ごく小さい棒にとどめる。 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51.5,54.4 L56.5,54.4 A1.4,1.4 0 0 0 56.5,51.6 L51.5,51.6 A1.4,1.4 0 0 0 51.5,54.4 Z" />
 </vector>
