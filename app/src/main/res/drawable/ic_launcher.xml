@@ -1,15 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 25 以下向けのランチャーアイコン（マスクが効かないので背景も自前で描く）。
+     API 26+ は mipmap-anydpi-v26/ic_launcher.xml のアダプティブアイコンが使われる。
+     時計は前景（ic_launcher_foreground）と同じ図形で、マスクを考えなくてよい分だけ大きめ。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- トマト赤の角丸背景（@color/ic_launcher_background と同じ値）。 -->
     <path
-        android:fillColor="#D32F2F"
-        android:pathData="M12,2A10,10 0,1 0,22 12A10,10 0,0 0,12 2ZM12,20A8,8 0,1 1,20 12A8,8 0,0 1,12 20Z" />
-    <path
-        android:fillColor="#D32F2F"
-        android:pathData="M12.5,7L11,7v6l5.2,3.1l0.8,-1.3l-4.5,-2.7z" />
-    <path
-        android:fillColor="#D32F2F"
-        android:pathData="M9,1h6v2h-6z" />
+        android:fillColor="#C0392B"
+        android:pathData="M24,0L84,0A24,24 0 0 1 108,24L108,84A24,24 0 0 1 84,108L24,108A24,24 0 0 1 0,84L0,24A24,24 0 0 1 24,0Z" />
+    <group
+        android:scaleX="3.2"
+        android:scaleY="3.2"
+        android:translateX="15.6"
+        android:translateY="15.6">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,2A10,10 0,1 0,22 12A10,10 0,0 0,12 2ZM12,20A8,8 0,1 1,20 12A8,8 0,0 1,12 20Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12.5,7L11,7v6l5.2,3.1l0.8,-1.3l-4.5,-2.7z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M9,1h6v2h-6z" />
+    </group>
 </vector>

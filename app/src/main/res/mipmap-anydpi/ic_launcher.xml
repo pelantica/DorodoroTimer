@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- minSdk=24 なので API 25 以下のフォールバックが要る。
+     こちらはマスクが効かないため、背景まで含めて描いた drawable/ic_launcher を使う。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_launcher" />
