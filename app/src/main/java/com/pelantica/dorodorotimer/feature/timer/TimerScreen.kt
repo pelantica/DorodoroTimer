@@ -164,33 +164,23 @@ private fun TimerContent(
     }
 }
 
-/** 「● 集中」／「● 休憩」のピル。いまどちらのフェーズかを一目で分かるようにする。 */
+/** 「🍅 集中」／「☕ 休憩」のピル。いまどちらのフェーズかを一目で分かるようにする。 */
 @Composable
 private fun PhaseChip(phase: TimerPhase, modifier: Modifier = Modifier) {
+    // 絵文字は文字列側（strings.xml）に持たせている。Composable では地と文字色だけ決める。
     val label = when (phase) {
         TimerPhase.FOCUS -> stringResource(R.string.timer_phase_focus)
         TimerPhase.BREAK -> stringResource(R.string.timer_phase_break)
     }
-    Row(
+    Text(
+        text = label,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onPrimaryContainer,
         modifier = modifier
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primaryContainer)
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
-    }
+    )
 }
 
 /**

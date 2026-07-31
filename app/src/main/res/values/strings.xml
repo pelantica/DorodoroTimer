@@ -5,8 +5,9 @@
     <string name="timer_start">開始</string>
     <string name="timer_pause">一時停止</string>
     <string name="timer_reset">リセット</string>
-    <string name="timer_phase_focus">集中</string>
-    <string name="timer_phase_break">休憩</string>
+    <!-- 絵文字は 🍅=集中 / ☕=休憩 で全画面・通知を通して揃える -->
+    <string name="timer_phase_focus">🍅 集中</string>
+    <string name="timer_phase_break">☕ 休憩</string>
 
     <!-- bottom nav -->
     <string name="nav_timer">タイマー</string>
@@ -15,16 +16,16 @@
 
     <!-- stats -->
     <string name="stats_placeholder">セッション統計（実装予定）</string>
-    <string name="stats_empty">まだ記録がありません</string>
+    <string name="stats_empty">🌱 まだ記録がありません</string>
     <!-- stats row: %1$d=年, %2$d=月, %3$d=日 -->
     <string name="stats_row_date">%1$d/%2$d/%3$d</string>
     <!-- stats row: %1$d=集中回数 -->
-    <string name="stats_row_focus_count">集中 %1$d 回</string>
+    <string name="stats_row_focus_count">🍅 集中 %1$d 回</string>
     <!-- stats row: %1$d=合計分数 -->
-    <string name="stats_row_total_minutes">合計 %1$d 分</string>
+    <string name="stats_row_total_minutes">⏱️ 合計 %1$d 分</string>
 
     <!-- settings -->
-    <string name="settings_demo_mode_title">デモモード（ANR再現）</string>
+    <string name="settings_demo_mode_title">🧪 デモモード（ANR再現）</string>
     <string name="settings_demo_mode_desc">ONにすると、わざとANRを誘発する実装経路を通る。登壇デモ用。リリースでは常にOFF。</string>
     <string name="settings_anr_section_title">ANR個別トグル</string>
     <string name="settings_anr_01_label">ANR-01 メインスレッドI/O</string>
@@ -49,16 +50,16 @@
 
     <!-- timer end notification -->
     <string name="timer_end_channel_name">タイマー終了通知</string>
-    <string name="timer_end_focus_title">集中おつかれさま</string>
-    <string name="timer_end_focus_text">休憩しましょう</string>
-    <string name="timer_end_break_title">休憩おわり</string>
-    <string name="timer_end_break_text">集中に戻りましょう</string>
+    <string name="timer_end_focus_title">🍅 集中おつかれさま</string>
+    <string name="timer_end_focus_text">☕ 休憩しましょう</string>
+    <string name="timer_end_break_title">☕ 休憩おわり</string>
+    <string name="timer_end_break_text">🍅 集中に戻りましょう</string>
 
     <!-- ambient sound (rain) -->
-    <string name="timer_sound_start">雨音を鳴らす</string>
-    <string name="timer_sound_stop">雨音を止める</string>
+    <string name="timer_sound_start">🌧️ 雨音を鳴らす</string>
+    <string name="timer_sound_stop">🌧️ 雨音を止める</string>
     <string name="ambient_notification_channel_name">環境音</string>
-    <string name="ambient_notification_title">雨音を再生中</string>
+    <string name="ambient_notification_title">🌧️ 雨音を再生中</string>
     <string name="ambient_notification_text">集中用の環境音</string>
     <string name="ambient_stop">停止</string>
 </resources>
