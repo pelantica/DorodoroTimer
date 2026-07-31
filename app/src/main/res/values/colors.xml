@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 側の core/ui/Color.kt と対になる値。
+         Compose が描き始める前（起動時のウィンドウ背景・システムバー）と
+         ランチャーアイコンにだけ使うので、ここに重複して持っている。 -->
+
+    <!-- WarmBackground。Compose 描画前の白フラッシュを防ぐ。 -->
+    <color name="warm_background">#FBF6F3</color>
+    <!-- WarmSurface。ボトムナビの帯と揃えてナビゲーションバーを繋げる。 -->
+    <color name="warm_surface">#F7E9E5</color>
+    <!-- TomatoRed。アダプティブアイコンの背景。 -->
+    <color name="ic_launcher_background">#C0392B</color>
+</resources>

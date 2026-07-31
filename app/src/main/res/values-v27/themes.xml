@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Compose 側で MaterialTheme を使うため、プラットフォームの NoActionBar テーマを土台にする。
-         ここで指定するのは Compose が描き始める前に見える部分だけ（起動時の背景・システムバー）。
-         画面内の配色は core/ui/Theme.kt が持つ。 -->
+    <!-- windowLightNavigationBar は API 27 以降。明るいナビゲーションバーの上で
+         ジェスチャーハンドル／戻るボタンが白のまま消えるのを防ぐ。 -->
     <style name="Theme.DorodoroTimer" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/warm_background</item>
         <item name="android:statusBarColor">@color/warm_background</item>
         <item name="android:navigationBarColor">@color/warm_surface</item>
-        <!-- 地が明るいのでシステムバーのアイコンは暗色にする。 -->
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>
