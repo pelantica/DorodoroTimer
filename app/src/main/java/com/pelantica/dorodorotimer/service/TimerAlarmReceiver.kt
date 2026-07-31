@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
+import com.pelantica.dorodorotimer.domain.model.TimerPhase
 
 /**
  * タイマー終了アラームの受け口。onReceive はメインスレッドで動くため軽量に保つ（正版）。
@@ -15,7 +16,7 @@ class TimerAlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
         Log.d(TAG, "onReceive action=${intent?.action}")
-        if (intent?.action != ACTION_TIMER_FINISHED) return
+        if (intent == null || intent.action != ACTION_TIMER_FINISHED) return
         // [ANR-06] demoMode ON のとき、ここで重い同期処理（DB集計やsleep等）を走らせると
         //  onReceive がメインを固めて BroadcastReceiver ANR を再現できる。今回は正版＝即通知のみ。
         if (DemoConfig.isOn(Anr.ANR_06)) {
@@ -24,11 +25,19 @@ class TimerAlarmReceiver : BroadcastReceiver() {
             //        PendingResult.finish() を呼ぶことで onReceive の枠を延長できる。
             ReceiverWork.heavyBlockingWork()
         }
-        TimerEndNotifications.notifyFinished(context)
+        val phase = intent.finishedPhaseOrDefault()
+        TimerEndNotifications.notifyFinished(context, phase)
+    }
+
+    /** extraが無い/不正なフォールバックは FOCUS 扱い（クラッシュさせない）。 */
+    private fun Intent.finishedPhaseOrDefault(): TimerPhase {
+        val raw = getStringExtra(EXTRA_PHASE) ?: return TimerPhase.FOCUS
+        return runCatching { TimerPhase.valueOf(raw) }.getOrDefault(TimerPhase.FOCUS)
     }
 
     companion object {
         private const val TAG = "TimerAlarmRcv"
         const val ACTION_TIMER_FINISHED = "com.pelantica.dorodorotimer.action.TIMER_FINISHED"
+        const val EXTRA_PHASE = "com.pelantica.dorodorotimer.extra.PHASE"
     }
 }
