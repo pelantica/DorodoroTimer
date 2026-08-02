@@ -28,6 +28,7 @@ import com.pelantica.dorodorotimer.R
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.AppRestarter
 import com.pelantica.dorodorotimer.core.debug.DemoFlagsState
+import com.pelantica.dorodorotimer.core.ui.SectionCard
 import org.koin.androidx.compose.koinViewModel
 
 @StringRes
@@ -55,7 +56,7 @@ fun SettingsScreen(
         onAnr = viewModel::setAnr,
         onDismissRestartPrompt = viewModel::dismissRestartPrompt,
         onConfirmRestart = {
-            viewModel.dismissRestartPrompt()
+            viewModel.confirmRestartPrompt()
             AppRestarter.restart(context)
         },
     )
@@ -72,61 +73,76 @@ fun SettingsContent(
 ) {
     Column(
         modifier = modifier
-            .padding(24.dp)
+            .padding(horizontal = 20.dp, vertical = 24.dp)
             .verticalScroll(rememberScrollState()),
     ) {
         // マスタースイッチ
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_demo_mode_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = stringResource(R.string.settings_demo_mode_desc),
-                    style = MaterialTheme.typography.bodySmall,
+        SectionCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_demo_mode_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_demo_mode_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    checked = state.master,
+                    onCheckedChange = onMaster,
                 )
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Switch(
-                checked = state.master,
-                onCheckedChange = onMaster,
-            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // ANR個別トグルセクション
         Text(
             text = stringResource(R.string.settings_anr_section_title),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp),
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        Anr.entries.forEach { anr ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(anr.labelRes()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Switch(
-                    checked = state.perAnr[anr] ?: false,
-                    onCheckedChange = { on -> onAnr(anr, on) },
-                    enabled = state.master,
-                )
+        SectionCard {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                Anr.entries.forEachIndexed { index, anr ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(anr.labelRes()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = state.perAnr[anr] ?: false,
+                            onCheckedChange = { on -> onAnr(anr, on) },
+                            enabled = state.master,
+                        )
+                    }
+                }
             }
         }
     }

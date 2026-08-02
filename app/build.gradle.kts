@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Firebase Crashlytics（ANRレポートの収集）。google-services は google-services.json を読む。
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
     // TODO(ANR-01): SQLDelight を再有効化する。2.1.0 は AGP 9.1.0 で BaseExtension 参照エラーになるため
     //  一旦無効化中（AGP 9 対応版が出たら戻す／またはサンプルだけ AGP を下げる）。
     //  alias(libs.plugins.sqldelight)
@@ -17,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pelantica.dorodorotimer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -37,8 +40,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        // minSdk=24 でも java.time (LocalDate 等) を使えるようにする
-        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -76,7 +77,6 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.core.splashscreen)
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // --- DorodoroTimer 追加 ---
     // DI: demoMode の実装差し替え／②③⑦ の lazyModule 処方の土台
@@ -89,6 +89,12 @@ dependencies {
     // TODO(ANR-01): SQLDelight 再有効化時に戻す（AGP 9 未対応のため無効化中）
     // implementation(libs.sqldelight.android.driver)
     // implementation(libs.sqldelight.coroutines.extensions)
+    // Firebase Crashlytics: ANRレポートを ApplicationExitInfo 経由で収集し、
+    //  「ダッシュボードにANRがどう表示されるか」を実物で確認するために導入（登壇用）。
+    //  analytics は Crashlytics がクラッシュ前のユーザー行動を紐付けるために併せて入れる。
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
