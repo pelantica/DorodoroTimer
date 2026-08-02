@@ -44,7 +44,8 @@
     <string name="duration_dialog_title">時間を設定</string>
     <string name="duration_target_focus">集中</string>
     <string name="duration_target_break">休憩</string>
-    <string name="duration_delete">削除</string>
+    <string name="duration_unit_minutes">分</string>
+    <string name="duration_unit_seconds">秒</string>
     <string name="duration_confirm">決定</string>
     <string name="duration_cancel">キャンセル</string>
 
