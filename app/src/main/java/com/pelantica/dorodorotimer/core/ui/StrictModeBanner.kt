@@ -1,0 +1,196 @@
+package com.pelantica.dorodorotimer.core.ui
+
+import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.pelantica.dorodorotimer.R
+import com.pelantica.dorodorotimer.core.debug.StrictModeViolation
+import com.pelantica.dorodorotimer.core.debug.StrictModeViolations
+
+private val BannerHorizontalPadding = 16.dp
+private val BannerVerticalPadding = 8.dp
+
+/**
+ * StrictMode が検出した違反を画面上部に出すバナー。デバッグビルドでしか違反が
+ * 記録されないため、リリースでは何も表示されない（[StrictModeViolations] が常に空）。
+ *
+ * ANR 再現トグル（demoMode）とは独立していて、トグルが全部 OFF でも動く。
+ * 「仕込んだ ANR」ではなく「メインスレッドI/Oに気づくための仕掛け」なので、
+ * `[ANR-xx]` マーカーは付けない。
+ */
+@Composable
+fun StrictModeBanner(modifier: Modifier = Modifier) {
+    val violations by StrictModeViolations.violations.collectAsState()
+    // ✕ を押した時点の件数。以降に新しい違反が増えたらまた出す
+    // （消したまま二度と出ないと、あとから踏んだ違反に気づけない）。
+    var dismissedAt by remember { mutableIntStateOf(0) }
+    if (violations.size <= dismissedAt) return
+
+    var showDetail by remember { mutableStateOf(false) }
+    StrictModeBannerContent(
+        modifier = modifier,
+        violations = violations,
+        onClick = { showDetail = true },
+        onDismiss = { dismissedAt = violations.size },
+    )
+    if (showDetail) {
+        StrictModeDetailDialog(
+            violations = violations,
+            onClear = {
+                StrictModeViolations.clear()
+                dismissedAt = 0
+                showDetail = false
+            },
+            onClose = { showDetail = false },
+        )
+    }
+}
+
+@Composable
+private fun StrictModeBannerContent(
+    modifier: Modifier = Modifier,
+    violations: List<StrictModeViolation>,
+    onClick: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+) {
+    val latest = violations.last()
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    ) {
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(
+                    start = BannerHorizontalPadding,
+                    end = BannerVerticalPadding,
+                    top = BannerVerticalPadding,
+                    bottom = BannerVerticalPadding,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(imageVector = Icons.Filled.Warning, contentDescription = null)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.strictmode_banner_title, latest.kind),
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.strictmode_banner_summary,
+                        stringResource(latest.kind.kindLabelRes()),
+                        violations.size,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.strictmode_banner_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.strictmode_banner_dismiss),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Android が出力したスタックトレースをそのまま見せる。整形すると
+ * 「どのフレームが自分のコードか」を読む練習にならないので、原文のまま出す。
+ */
+@Composable
+private fun StrictModeDetailDialog(
+    violations: List<StrictModeViolation>,
+    onClear: () -> Unit,
+    onClose: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.strictmode_detail_title, violations.size)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                // 新しいものから見せる（直前の操作で踏んだ違反が一番上に来る）。
+                violations.asReversed().forEach { violation ->
+                    Text(
+                        text = violation.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose) { Text(stringResource(R.string.strictmode_detail_close)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onClear) { Text(stringResource(R.string.strictmode_detail_clear)) }
+        },
+    )
+}
+
+@StringRes
+private fun String.kindLabelRes(): Int = when (this) {
+    "DiskReadViolation" -> R.string.strictmode_kind_disk_read
+    "DiskWriteViolation" -> R.string.strictmode_kind_disk_write
+    "NetworkViolation" -> R.string.strictmode_kind_network
+    else -> R.string.strictmode_kind_other
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun StrictModeBannerPreview() {
+    DorodoroTimerTheme {
+        StrictModeBannerContent(
+            violations = listOf(
+                StrictModeViolation(
+                    kind = "DiskWriteViolation",
+                    detail = "android.os.strictmode.DiskWriteViolation\n\tat ...",
+                ),
+            ),
+        )
+    }
+}

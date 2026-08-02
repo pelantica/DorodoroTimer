@@ -40,6 +40,15 @@ CFP 外の追加候補（重い同期計算 / Compose 再コンポーズ / Conte
 | SQLDelight | クエリはデフォルト同期実行（守ってくれない側） | 「守ってくれない」例＝事例①の正体 |
 | DataStore | suspend/Flow で非同期 | 補助 |
 
+## StrictMode（デバッグビルドのみ・処方側の実演）
+
+ANR を仕込む demoMode とは**独立**して、デバッグビルドでは常にメインスレッドのディスク I/O を検出する（`core/debug/StrictModeInstaller.kt`）。違反が出ると画面上部にバナーが出て、タップすると Android が出力したスタックトレース全文を表示する。マーカー `[ANR-xx]` は付けない（仕込み側ではなく気づく側のため）。
+
+- **ネットワークは OS が既定でメインスレッド禁止**（`initThreadDefaults` が `detectNetwork` + `penaltyDeathOnNetwork` を入れる＝`NetworkOnMainThreadException` の正体）。**ディスク I/O は検出すらされない**ので、自分でスイッチを入れる必要がある。
+- 既定ポリシーを引き継ぐため `ThreadPolicy.Builder(StrictMode.getThreadPolicy())` から組み立てる。`Builder()` を新規に作ると `penaltyDeathOnNetwork` が消え、デバッグビルドの方が緩くなる。
+- `penaltyDeath` は使わない。落とさずに気づかせるのが目的。
+- リリースビルドでは `BuildConfig.DEBUG` で丸ごと無効。
+
 ## 技術スタック
 
 Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + SQLDelight + DataStore / WorkManager / Navigation3。Version Catalog 管理・単一モジュール。

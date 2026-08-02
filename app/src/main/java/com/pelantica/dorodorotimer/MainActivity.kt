@@ -5,7 +5,9 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.pelantica.dorodorotimer.core.ui.DorodoroTimerTheme
+import com.pelantica.dorodorotimer.core.ui.StrictModeBanner
 import com.pelantica.dorodorotimer.feature.settings.SettingsScreen
 import com.pelantica.dorodorotimer.feature.stats.StatsScreen
 import com.pelantica.dorodorotimer.feature.timer.TimerScreen
@@ -79,13 +82,17 @@ private fun DorodoroApp(selectedTab: Tab = Tab.TIMER, onSelectTab: (Tab) -> Unit
             }
         },
     ) { innerPadding ->
-        val contentModifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-        when (selectedTab) {
-            Tab.TIMER -> TimerScreen(modifier = contentModifier)
-            Tab.STATS -> StatsScreen(modifier = contentModifier)
-            Tab.SETTINGS -> SettingsScreen(modifier = contentModifier)
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            // デバッグビルドで StrictMode 違反が出たときだけ、画面の一番上に出る。
+            StrictModeBanner()
+            val contentModifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+            when (selectedTab) {
+                Tab.TIMER -> TimerScreen(modifier = contentModifier)
+                Tab.STATS -> StatsScreen(modifier = contentModifier)
+                Tab.SETTINGS -> SettingsScreen(modifier = contentModifier)
+            }
         }
     }
 }
