@@ -11,9 +11,11 @@ import com.pelantica.dorodorotimer.core.debug.DemoFlags
 import com.pelantica.dorodorotimer.data.local.datastore.DataStorePomodoroPresetRepository
 import com.pelantica.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.pelantica.dorodorotimer.data.local.room.AppDatabase
+import com.pelantica.dorodorotimer.data.local.room.RoomFocusSessionRecorder
 import com.pelantica.dorodorotimer.data.local.stats.BlockingStatsRepository
 import com.pelantica.dorodorotimer.data.local.stats.OffloadedStatsRepository
 import com.pelantica.dorodorotimer.data.local.stats.RawSqliteStatsHelper
+import com.pelantica.dorodorotimer.domain.repository.FocusSessionRecorder
 import com.pelantica.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
 import com.pelantica.dorodorotimer.domain.repository.TimerStateRepository
@@ -53,6 +55,10 @@ val appModule = module {
     }
     single { get<AppDatabase>().focusSessionDao() }
 
+    // 完了セッションの記録。ANR-01 の差し替え対象（StatsRepository）とは独立に、
+    // 常に安全な Room 経路だけを配線する（理由は FocusSessionRecorder の KDoc）。
+    single<FocusSessionRecorder> { RoomFocusSessionRecorder(get()) }
+
     // [ANR-01] 生SQLite（「守ってくれない」側）ヘルパー。SQLDelight が AGP9 未対応のため生SQLiteで代替。
     single { RawSqliteStatsHelper(androidContext()) }
 
@@ -71,7 +77,7 @@ val appModule = module {
         }
     }
 
-    viewModel { TimerViewModel(get(), get(), get(), get()) }
+    viewModel { TimerViewModel(get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { StatsViewModel(get()) }
 }

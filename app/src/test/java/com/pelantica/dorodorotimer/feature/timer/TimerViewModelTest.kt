@@ -3,6 +3,7 @@ package com.pelantica.dorodorotimer.feature.timer
 import com.pelantica.dorodorotimer.domain.model.PomodoroPreset
 import com.pelantica.dorodorotimer.domain.model.TimerPhase
 import com.pelantica.dorodorotimer.domain.model.TimerState
+import com.pelantica.dorodorotimer.domain.repository.FocusSessionRecorder
 import com.pelantica.dorodorotimer.domain.repository.PomodoroPresetRepository
 import com.pelantica.dorodorotimer.domain.repository.TimerStateRepository
 import com.pelantica.dorodorotimer.service.AmbientSoundController
@@ -51,6 +52,14 @@ private class FakeTimerScheduler : TimerScheduler {
     override fun cancel() { cancelCount++ }
 }
 
+private class FakeFocusSessionRecorder : FocusSessionRecorder {
+    /** (durationSeconds, completedAtEpochMs) */
+    val recorded = mutableListOf<Pair<Int, Long>>()
+    override suspend fun record(durationSeconds: Int, completedAtEpochMs: Long) {
+        recorded += durationSeconds to completedAtEpochMs
+    }
+}
+
 private class FakeAmbientSoundController : AmbientSoundController {
     private val f = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = f
@@ -72,7 +81,10 @@ class TimerViewModelTest {
             TimerState(TimerPhase.FOCUS, remainingSeconds = 1500, runningUntilEpochMs = null)
         ),
         scheduler: FakeTimerScheduler = FakeTimerScheduler(),
-    ) = TimerViewModel(presetRepo, timer, scheduler, FakeAmbientSoundController(), now = { fixedNow })
+        recorder: FakeFocusSessionRecorder = FakeFocusSessionRecorder(),
+    ) = TimerViewModel(
+        presetRepo, timer, scheduler, FakeAmbientSoundController(), recorder, now = { fixedNow }
+    )
 
     @Test
     fun toggleRunning_whenStopped_schedulesAndMarksRunning() = runTest(dispatcher) {
@@ -190,6 +202,70 @@ class TimerViewModelTest {
         assertEquals(TimerPhase.BREAK, viewModel.uiState.value.phase)
         assertEquals(false, viewModel.uiState.value.isRunning)
         viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun tickFinish_focusPhase_recordsOneSession() = runTest(dispatcher) {
+        val recorder = FakeFocusSessionRecorder()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 2, runningUntilEpochMs = null)
+        )
+        val viewModel = vm(timer = timer, recorder = recorder)
+        testScheduler.runCurrent()
+        viewModel.toggleRunning() // end = 10000 + 2000 = 12000
+        testScheduler.runCurrent()
+
+        fixedNow = 12_000L
+        testScheduler.advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        // duration は現設定の集中時間（fake preset の 1500）、completedAt は実際の終了時刻
+        assertEquals(listOf(1500 to 12_000L), recorder.recorded)
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun tickFinish_breakPhase_doesNotRecord() = runTest(dispatcher) {
+        val recorder = FakeFocusSessionRecorder()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.BREAK, remainingSeconds = 2, runningUntilEpochMs = null)
+        )
+        val viewModel = vm(timer = timer, recorder = recorder)
+        testScheduler.runCurrent()
+        viewModel.toggleRunning()
+        testScheduler.runCurrent()
+
+        fixedNow = 12_000L
+        testScheduler.advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertEquals(TimerPhase.FOCUS, viewModel.uiState.value.phase) // 休憩→集中には送られる
+        assertEquals(emptyList<Pair<Int, Long>>(), recorder.recorded) // が、記録はされない
+        viewModel.viewModelScope.cancel()
+    }
+
+    @Test
+    fun initCatchUp_expiredFocus_recordsWithActualEndTime() = runTest(dispatcher) {
+        // アプリを閉じている間に集中が終わっていたケース。
+        // completedAt は開き直した now(10000) ではなく、本当の終了時刻 runningUntilEpochMs(5000)。
+        val recorder = FakeFocusSessionRecorder()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 0, runningUntilEpochMs = 5_000L)
+        )
+        vm(timer = timer, recorder = recorder)
+        testScheduler.runCurrent()
+        assertEquals(listOf(1500 to 5_000L), recorder.recorded)
+    }
+
+    @Test
+    fun reset_doesNotRecord() = runTest(dispatcher) {
+        val recorder = FakeFocusSessionRecorder()
+        val timer = FakeTimerStateRepository(
+            TimerState(TimerPhase.FOCUS, remainingSeconds = 30, runningUntilEpochMs = 100_000L)
+        )
+        val viewModel = vm(timer = timer, recorder = recorder)
+        testScheduler.runCurrent()
+        viewModel.reset() // 途中放棄は完了ではない
+        testScheduler.runCurrent()
+        assertEquals(emptyList<Pair<Int, Long>>(), recorder.recorded)
     }
 
     @Test
