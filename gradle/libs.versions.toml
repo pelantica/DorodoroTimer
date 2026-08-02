@@ -13,7 +13,6 @@ ksp = "2.2.20-2.0.3"
 navigation3 = "1.0.0"
 datastore = "1.1.2"
 splashscreen = "1.0.1"
-desugarJdkLibs = "2.1.5"
 # --- DorodoroTimer 追加（demoMode / lazy / 永続化の対比のための土台）---
 koin = "4.1.0"
 workManager = "2.10.1"
@@ -51,7 +50,6 @@ androidx-navigation3-runtime = { group = "androidx.navigation3", name = "navigat
 androidx-navigation3-ui = { group = "androidx.navigation3", name = "navigation3-ui", version.ref = "navigation3" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 # --- DorodoroTimer 追加 ---
 koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin" }
 koin-android = { group = "io.insert-koin", name = "koin-android" }

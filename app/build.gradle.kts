@@ -40,9 +40,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        // java.time は minSdk=26 なら標準で使えるので必須ではないが、
-        // 将来 minSdk を下げた場合や他の新しめの API のために有効のままにしておく
-        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -80,7 +77,6 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.core.splashscreen)
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // --- DorodoroTimer 追加 ---
     // DI: demoMode の実装差し替え／②③⑦ の lazyModule 処方の土台
