@@ -15,7 +15,7 @@ import org.junit.Before
 import org.junit.Test
 
 private class FakeStatsRepository(
-    private val stats: List<DailyStat> = emptyList(),
+    var stats: List<DailyStat> = emptyList(),
 ) : StatsRepository {
     override suspend fun dailyStats(): List<DailyStat> = stats
 }
@@ -27,29 +27,46 @@ class StatsViewModelTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun init_startsWithLoadingTrue() = runTest(dispatcher) {
+    fun beforeReload_startsWithLoadingTrue() = runTest(dispatcher) {
         val vm = StatsViewModel(FakeStatsRepository())
-        // 初期値は isLoading=true（coroutine 未実行）
+        // reload 前は isLoading=true
         assertTrue(vm.uiState.value.isLoading)
     }
 
     @Test
-    fun init_afterLoad_isLoadingFalseAndStatsPopulated() = runTest(dispatcher) {
+    fun reload_populatesStatsAndClearsLoading() = runTest(dispatcher) {
         val stats = listOf(
             DailyStat(dateEpochDay = 2L, focusCount = 3, totalFocusSeconds = 4500),
             DailyStat(dateEpochDay = 1L, focusCount = 1, totalFocusSeconds = 1500),
         )
         val vm = StatsViewModel(FakeStatsRepository(stats))
+        vm.reload()
         testScheduler.runCurrent()
         assertFalse(vm.uiState.value.isLoading)
         assertEquals(stats, vm.uiState.value.stats)
     }
 
     @Test
-    fun init_emptyRepo_isLoadingFalseAndEmptyStats() = runTest(dispatcher) {
+    fun reload_emptyRepo_isLoadingFalseAndEmptyStats() = runTest(dispatcher) {
         val vm = StatsViewModel(FakeStatsRepository(emptyList()))
+        vm.reload()
         testScheduler.runCurrent()
         assertFalse(vm.uiState.value.isLoading)
         assertEquals(emptyList<DailyStat>(), vm.uiState.value.stats)
+    }
+
+    @Test
+    fun reload_picksUpNewlyRecordedSessions() = runTest(dispatcher) {
+        // タイマーで新しいセッションが完了した後にタブへ入り直すケース
+        val repo = FakeStatsRepository(emptyList())
+        val vm = StatsViewModel(repo)
+        vm.reload()
+        testScheduler.runCurrent()
+        assertEquals(emptyList<DailyStat>(), vm.uiState.value.stats)
+
+        repo.stats = listOf(DailyStat(dateEpochDay = 3L, focusCount = 1, totalFocusSeconds = 5))
+        vm.reload()
+        testScheduler.runCurrent()
+        assertEquals(repo.stats, vm.uiState.value.stats)
     }
 }
