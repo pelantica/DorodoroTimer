@@ -38,7 +38,15 @@ private fun roundToNearestStep(rawSeconds: Int): Int {
 /**
  * 保存されている合計秒数を、ホイール表示用の (分, 秒) へ変換する。
  * 秒は5秒刻みに丸め（60になる場合は分を+1して秒を0にキャリー）、
- * 分は [minMinutes]..[maxMinutes] にクランプする（既存値が範囲外でもクラッシュしない）。
+ * 分は [minMinutes]..[maxMinutes] にクランプする。
+ *
+ * この正規化は「テンキー時代の1秒単位の値を読むため」だけのものではない。
+ * 保存は秒単位の Int で、刻みも範囲も持たないホイールより表現力が広く、
+ * ホイールで表せない値が入りうる。たとえば
+ *  - [SECONDS_STEP] や分レンジの定数を後から変えたとき、既存の保存値が刻み外・範囲外になる
+ *  - allowBackup 経由で、旧バージョンで保存された値が復元されてくる
+ * 正規化を外しても落ちはしないが、WheelNumberPicker の indexOf が -1 になって
+ * ホイールの先頭（0分）へ飛ぶ。近い値へ寄せる方が被害が小さい。
  */
 internal fun secondsToWheelValues(totalSeconds: Int, minMinutes: Int, maxMinutes: Int): Pair<Int, Int> {
     val safeTotal = totalSeconds.coerceAtLeast(0)
