@@ -56,7 +56,7 @@ fun SettingsScreen(
         onAnr = viewModel::setAnr,
         onDismissRestartPrompt = viewModel::dismissRestartPrompt,
         onConfirmRestart = {
-            viewModel.dismissRestartPrompt()
+            viewModel.confirmRestartPrompt()
             AppRestarter.restart(context)
         },
     )
