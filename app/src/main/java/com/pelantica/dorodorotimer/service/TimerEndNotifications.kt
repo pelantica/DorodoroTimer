@@ -56,7 +56,7 @@ object TimerEndNotifications {
             TimerPhase.BREAK -> R.string.timer_end_break_title to R.string.timer_end_break_text
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(titleRes))
             .setContentText(context.getString(textRes))
             .setContentIntent(pending)
