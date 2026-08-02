@@ -160,7 +160,7 @@ class AmbientSoundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.ambient_notification_title))
             .setContentText(getString(R.string.ambient_notification_text))
             .setOngoing(true)

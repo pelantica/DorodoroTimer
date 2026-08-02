@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pelantica.dorodorotimer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -40,8 +40,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        // minSdk=24 でも java.time (LocalDate 等) を使えるようにする
-        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -79,7 +77,6 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.core.splashscreen)
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // --- DorodoroTimer 追加 ---
     // DI: demoMode の実装差し替え／②③⑦ の lazyModule 処方の土台
