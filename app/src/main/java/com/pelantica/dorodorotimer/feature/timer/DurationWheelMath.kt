@@ -11,12 +11,15 @@ internal const val SECONDS_STEP = 5
 /** 秒ホイールに表示する値のリスト（0,5,...,55）。 */
 internal val SECONDS_WHEEL_VALUES: List<Int> = (0 until 60 step SECONDS_STEP).toList()
 
-/** 集中時間の分レンジ（1〜120分）。 */
-internal const val FOCUS_MIN_MINUTES = 1
+/**
+ * 集中時間の分レンジ（0〜120分）。下限が0なのは 0:05 のような1分未満を組めるようにするため
+ * （終了通知やフェーズ切り替えの確認に要る）。0分0秒だけは [isValidDuration] で弾く。
+ */
+internal const val FOCUS_MIN_MINUTES = 0
 internal const val FOCUS_MAX_MINUTES = 120
 
-/** 休憩時間の分レンジ（1〜60分）。 */
-internal const val BREAK_MIN_MINUTES = 1
+/** 休憩時間の分レンジ（0〜60分）。下限の意図は [FOCUS_MIN_MINUTES] と同じ。 */
+internal const val BREAK_MIN_MINUTES = 0
 internal const val BREAK_MAX_MINUTES = 60
 
 /** 分ホイールに表示する値のリストを生成する。 */
@@ -53,3 +56,10 @@ internal fun secondsToWheelValues(totalSeconds: Int, minMinutes: Int, maxMinutes
 
 /** ホイールで選択された (分, 秒) を合計秒数へ変換する。 */
 internal fun wheelValuesToSeconds(minutes: Int, seconds: Int): Int = minutes * 60 + seconds
+
+/**
+ * ホイールで選ばれた値を保存してよいか。
+ * 0分0秒を許すと、開始した瞬間に残り0秒と判定されてフェーズが即終了してしまうため弾く。
+ */
+internal fun isValidDuration(minutes: Int, seconds: Int): Boolean =
+    wheelValuesToSeconds(minutes, seconds) > 0

@@ -1,6 +1,8 @@
 package com.pelantica.dorodorotimer.feature.timer
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DurationWheelMathTest {
@@ -93,18 +95,18 @@ class DurationWheelMathTest {
 
     // minutesWheelValues / SECONDS_WHEEL_VALUES
     @Test
-    fun minutesWheelValues_focusRange_has120Entries() {
+    fun minutesWheelValues_focusRange_startsAtZeroAndEndsAt120() {
         val values = minutesWheelValues(FOCUS_MIN_MINUTES, FOCUS_MAX_MINUTES)
-        assertEquals(120, values.size)
-        assertEquals(1, values.first())
+        assertEquals(121, values.size)
+        assertEquals(0, values.first())
         assertEquals(120, values.last())
     }
 
     @Test
-    fun minutesWheelValues_breakRange_has60Entries() {
+    fun minutesWheelValues_breakRange_startsAtZeroAndEndsAt60() {
         val values = minutesWheelValues(BREAK_MIN_MINUTES, BREAK_MAX_MINUTES)
-        assertEquals(60, values.size)
-        assertEquals(1, values.first())
+        assertEquals(61, values.size)
+        assertEquals(0, values.first())
         assertEquals(60, values.last())
     }
 
@@ -112,5 +114,34 @@ class DurationWheelMathTest {
     fun secondsWheelValues_hasTwelveStepsOfFive() {
         assertEquals(12, SECONDS_WHEEL_VALUES.size)
         assertEquals(listOf(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55), SECONDS_WHEEL_VALUES)
+    }
+
+    // 1分未満（0分◯秒）を組めること
+    @Test
+    fun secondsToWheelValues_subMinute_keepsZeroMinutes() {
+        // 5秒 -> 0分5秒。分の下限が0なので繰り上がらない
+        assertEquals(0 to 5, secondsToWheelValues(5, FOCUS_MIN_MINUTES, FOCUS_MAX_MINUTES))
+    }
+
+    @Test
+    fun secondsToWheelValues_subMinute_roundTrips() {
+        val (minutes, seconds) = secondsToWheelValues(30, FOCUS_MIN_MINUTES, FOCUS_MAX_MINUTES)
+        assertEquals(30, wheelValuesToSeconds(minutes, seconds))
+    }
+
+    // isValidDuration: 0分0秒だけを弾く
+    @Test
+    fun isValidDuration_zeroMinutesZeroSeconds_isInvalid() {
+        assertFalse(isValidDuration(0, 0))
+    }
+
+    @Test
+    fun isValidDuration_zeroMinutesFiveSeconds_isValid() {
+        assertTrue(isValidDuration(0, 5))
+    }
+
+    @Test
+    fun isValidDuration_oneMinuteZeroSeconds_isValid() {
+        assertTrue(isValidDuration(1, 0))
     }
 }

@@ -145,7 +145,12 @@ private fun DurationPickerDialogContent(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm) { Text(stringResource(R.string.duration_confirm)) }
+            // 集中・休憩を同時に確定するので、どちらかが0分0秒なら押させない。
+            Button(
+                onClick = onConfirm,
+                enabled = isValidDuration(focusMinutes, focusSeconds) &&
+                    isValidDuration(breakMinutes, breakSeconds),
+            ) { Text(stringResource(R.string.duration_confirm)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.duration_cancel)) }
