@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pelantica.dorodorotimer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
@@ -40,7 +40,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-        // minSdk=24 でも java.time (LocalDate 等) を使えるようにする
+        // java.time は minSdk=26 なら標準で使えるので必須ではないが、
+        // 将来 minSdk を下げた場合や他の新しめの API のために有効のままにしておく
         isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
