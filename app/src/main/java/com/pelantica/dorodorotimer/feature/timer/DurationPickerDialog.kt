@@ -26,6 +26,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -223,6 +224,13 @@ private fun WheelNumberPicker(
     val flingBehavior = rememberSnapFlingBehavior(listState)
     val sidePadding: Dp = WheelItemHeight * (WHEEL_VISIBLE_ITEM_COUNT / 2)
 
+    // LaunchedEffect のキーは listState と values だけなので、コルーチンは selectedValue が
+    // 変わっても再起動しない。素で参照すると開いた瞬間の値を掴んだままになり、
+    // 「一度動かしてから初期値に戻す」と value == 古い selectedValue になって通知が落ちる。
+    // rememberUpdatedState で常に最新を見る。
+    val currentSelectedValue by rememberUpdatedState(selectedValue)
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+
     // スクロールが止まったタイミングでのみ確定値を通知する（composition中のState書き換えを避ける）。
     LaunchedEffect(listState, values) {
         snapshotFlow { listState.isScrollInProgress to listState.firstVisibleItemIndex }
@@ -230,7 +238,7 @@ private fun WheelNumberPicker(
             .collect { (isScrolling, index) ->
                 if (!isScrolling) {
                     val value = values.getOrNull(index) ?: return@collect
-                    if (value != selectedValue) onValueChange(value)
+                    if (value != currentSelectedValue) currentOnValueChange(value)
                 }
             }
     }
