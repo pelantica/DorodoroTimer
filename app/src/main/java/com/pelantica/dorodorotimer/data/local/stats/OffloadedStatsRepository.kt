@@ -48,7 +48,12 @@ class OffloadedStatsRepository(
         //  なお下の集計は Kotlin 側＝Main で走るが、数千件で 10ms 程度のため実用上も問題ない
         //  （逆に「Roomが守るのは DAO 呼び出しの中だけ」という境界を示す教材にもなる）。
         val all = dao.getAll()
-        return all.filter { it.phase == TimerPhase.FOCUS.name }
+        // isDemo == seedDemoData で絞る:
+        //  - seedDemoData=true（demoMode）: この読み口は「デモ用の重いデータ」担当。実データは
+        //    画面が別途、常時安全な読み口（AppModule 参照）から取得して上のセクションに出す。
+        //  - seedDemoData=false（リリース）: 実データだけを返す。demoMode を OFF にした後に
+        //    シード行が残っていても、本物の統計に混ざらない。
+        return all.filter { it.phase == TimerPhase.FOCUS.name && it.isDemo == seedDemoData }
             .groupBy { it.completedAtEpochMs / 86_400_000L }
             .map { (day, rows) ->
                 DailyStat(
@@ -71,8 +76,9 @@ class OffloadedStatsRepository(
      * [RawSqliteStatsHelper.reseedForDemo] のKDoc参照）。
      */
     private suspend fun reseedForDemo(nowEpochMs: Long = System.currentTimeMillis()) {
-        // 前回のデモデータを消す（DELETE 自体は軽い。重いのは下の非トランザクションINSERTループ）。
-        dao.deleteAll()
+        // 前回のデモデータ（isDemo=1）だけを消す。実データは残る。
+        // （DELETE 自体は軽い。重いのは下の非トランザクションINSERTループ）
+        dao.deleteDemo()
 
         val start = System.currentTimeMillis()
         val rows = DemoStatsSeed.generate(seedRowCount, nowEpochMs)
@@ -84,6 +90,7 @@ class OffloadedStatsRepository(
                     phase = row.phase,
                     durationSeconds = row.durationSeconds,
                     completedAtEpochMs = row.completedAtEpochMs,
+                    isDemo = true,
                 )
             )
         }

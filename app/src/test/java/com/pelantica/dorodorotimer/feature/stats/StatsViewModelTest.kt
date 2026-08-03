@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -17,7 +18,12 @@ import org.junit.Test
 private class FakeStatsRepository(
     var stats: List<DailyStat> = emptyList(),
 ) : StatsRepository {
-    override suspend fun dailyStats(): List<DailyStat> = stats
+    var callCount = 0
+        private set
+    override suspend fun dailyStats(): List<DailyStat> {
+        callCount++
+        return stats
+    }
 }
 
 class StatsViewModelTest {
@@ -26,47 +32,74 @@ class StatsViewModelTest {
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
 
+    private fun vm(
+        demoRepo: FakeStatsRepository = FakeStatsRepository(),
+        realRepo: FakeStatsRepository = FakeStatsRepository(),
+        isDemoMode: Boolean = false,
+    ) = StatsViewModel(demoRepo, realRepo, { isDemoMode })
+
     @Test
     fun beforeReload_startsWithLoadingTrue() = runTest(dispatcher) {
-        val vm = StatsViewModel(FakeStatsRepository())
-        // reload 前は isLoading=true
-        assertTrue(vm.uiState.value.isLoading)
+        assertTrue(vm().uiState.value.isLoading)
     }
 
     @Test
-    fun reload_populatesStatsAndClearsLoading() = runTest(dispatcher) {
-        val stats = listOf(
-            DailyStat(dateEpochDay = 2L, focusCount = 3, totalFocusSeconds = 4500),
-            DailyStat(dateEpochDay = 1L, focusCount = 1, totalFocusSeconds = 1500),
+    fun reload_demoOff_populatesRealOnly_andSkipsDemoRepo() = runTest(dispatcher) {
+        val demoRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 9L, focusCount = 99, totalFocusSeconds = 9))
         )
-        val vm = StatsViewModel(FakeStatsRepository(stats))
-        vm.reload()
+        val realRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 2L, focusCount = 3, totalFocusSeconds = 4500))
+        )
+        val viewModel = vm(demoRepo = demoRepo, realRepo = realRepo, isDemoMode = false)
+        viewModel.reload()
         testScheduler.runCurrent()
-        assertFalse(vm.uiState.value.isLoading)
-        assertEquals(stats, vm.uiState.value.stats)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
+        assertNull(viewModel.uiState.value.demoStats)
+        // demoMode OFF ではデモ側の読み口（ANR-01差し替え点）に触らない
+        assertEquals(0, demoRepo.callCount)
     }
 
     @Test
-    fun reload_emptyRepo_isLoadingFalseAndEmptyStats() = runTest(dispatcher) {
-        val vm = StatsViewModel(FakeStatsRepository(emptyList()))
-        vm.reload()
+    fun reload_demoOn_populatesBothSections() = runTest(dispatcher) {
+        val demoRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 1L, focusCount = 8, totalFocusSeconds = 12000))
+        )
+        val realRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 2L, focusCount = 1, totalFocusSeconds = 5))
+        )
+        val viewModel = vm(demoRepo = demoRepo, realRepo = realRepo, isDemoMode = true)
+        viewModel.reload()
         testScheduler.runCurrent()
-        assertFalse(vm.uiState.value.isLoading)
-        assertEquals(emptyList<DailyStat>(), vm.uiState.value.stats)
+        assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
+        assertEquals(demoRepo.stats, viewModel.uiState.value.demoStats)
+    }
+
+    @Test
+    fun reload_demoOn_emptyReal_stillShowsDemoSection() = runTest(dispatcher) {
+        val demoRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 1L, focusCount = 8, totalFocusSeconds = 12000))
+        )
+        val viewModel = vm(demoRepo = demoRepo, realRepo = FakeStatsRepository(), isDemoMode = true)
+        viewModel.reload()
+        testScheduler.runCurrent()
+        assertEquals(emptyList<DailyStat>(), viewModel.uiState.value.realStats)
+        assertEquals(demoRepo.stats, viewModel.uiState.value.demoStats)
     }
 
     @Test
     fun reload_picksUpNewlyRecordedSessions() = runTest(dispatcher) {
         // タイマーで新しいセッションが完了した後にタブへ入り直すケース
-        val repo = FakeStatsRepository(emptyList())
-        val vm = StatsViewModel(repo)
-        vm.reload()
+        val realRepo = FakeStatsRepository(emptyList())
+        val viewModel = vm(realRepo = realRepo)
+        viewModel.reload()
         testScheduler.runCurrent()
-        assertEquals(emptyList<DailyStat>(), vm.uiState.value.stats)
+        assertEquals(emptyList<DailyStat>(), viewModel.uiState.value.realStats)
 
-        repo.stats = listOf(DailyStat(dateEpochDay = 3L, focusCount = 1, totalFocusSeconds = 5))
-        vm.reload()
+        realRepo.stats = listOf(DailyStat(dateEpochDay = 3L, focusCount = 1, totalFocusSeconds = 5))
+        viewModel.reload()
         testScheduler.runCurrent()
-        assertEquals(repo.stats, vm.uiState.value.stats)
+        assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
     }
 }

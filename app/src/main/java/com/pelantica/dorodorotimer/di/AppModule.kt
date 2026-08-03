@@ -51,7 +51,9 @@ val appModule = module {
 
     // Room（「スレッドを管理してくれる」側）。骨格では生成のみ。
     single {
-        Room.databaseBuilder(androidContext(), AppDatabase::class.java, "dorodoro.db").build()
+        Room.databaseBuilder(androidContext(), AppDatabase::class.java, "dorodoro.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
     }
     single { get<AppDatabase>().focusSessionDao() }
 
@@ -79,7 +81,9 @@ val appModule = module {
 
     viewModel { TimerViewModel(get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
-    viewModel { StatsViewModel(get()) }
+    // 第2引数は実データ専用の読み口。ANR-01 の差し替え対象（第1引数）とは独立に、
+    // 常に安全な Room 経路＝OffloadedStatsRepository(seedDemoData=false) を渡す。
+    viewModel { StatsViewModel(get(), OffloadedStatsRepository(get()), { DemoConfig.enabled }) }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。
