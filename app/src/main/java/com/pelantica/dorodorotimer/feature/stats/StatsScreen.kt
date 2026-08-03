@@ -39,6 +39,9 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
             // TODO(ANR-03): 重い同期処理（DB全件集計 / ロック競合 / Thread.sleep 等）をここで。
         }
     }
+    // タブに入るたびに読み直す（LaunchedEffect(Unit) はこの画面が composition に
+    // 入り直すたびに再実行される。理由は StatsViewModel.reload の KDoc）。
+    LaunchedEffect(Unit) { viewModel.reload() }
     val uiState by viewModel.uiState.collectAsState()
     StatsContent(modifier = modifier, uiState = uiState)
 }
