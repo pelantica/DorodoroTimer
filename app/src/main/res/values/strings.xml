@@ -63,4 +63,17 @@
     <string name="ambient_notification_title">🌧️ 雨音を再生中</string>
     <string name="ambient_notification_text">集中用の環境音</string>
     <string name="ambient_stop">停止</string>
+
+    <!-- StrictMode 違反バナー（デバッグビルドでのみ表示される） -->
+    <string name="strictmode_banner_title">StrictMode: %1$s</string>
+    <string name="strictmode_banner_summary">%1$s（%2$d件）</string>
+    <string name="strictmode_banner_hint">タップでスタックトレース</string>
+    <string name="strictmode_banner_dismiss">バナーを閉じる</string>
+    <string name="strictmode_kind_disk_read">メインスレッドでディスク読み込み</string>
+    <string name="strictmode_kind_disk_write">メインスレッドでディスク書き込み</string>
+    <string name="strictmode_kind_network">メインスレッドでネットワーク</string>
+    <string name="strictmode_kind_other">メインスレッドで避けたい処理</string>
+    <string name="strictmode_detail_title">StrictMode 違反 %1$d件</string>
+    <string name="strictmode_detail_clear">クリア</string>
+    <string name="strictmode_detail_close">閉じる</string>
 </resources>
