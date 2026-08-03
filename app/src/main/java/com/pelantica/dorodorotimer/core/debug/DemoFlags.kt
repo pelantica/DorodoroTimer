@@ -15,6 +15,22 @@ data class DemoFlagsState(
      * [restartPromptFor] が null のときは未使用。
      */
     val restartPromptPreviousValue: Boolean = false,
+    /**
+     * マスターOFFで一括クリアした個別トグルのうち、[Anr.requiresRestart] == true のものの一覧。
+     * 非null（かつ非空）の間、再起動を促すダイアログを表示する。
+     * [restartPromptFor]（個別トグル1件の変更）とは排他: 個別トグルはマスターがONの間しか
+     * 操作できない（[com.pelantica.dorodorotimer.feature.settings.SettingsContent] の Switch は
+     * `enabled = state.master`）ため、マスターOFFの一括クリアと個別トグルの変更が同時に
+     * 発生することはない。
+     */
+    val restartPromptForMasterOff: List<Anr>? = null,
+    /**
+     * マスターOFFで一括クリアする直前に ON だった個別トグルの一覧
+     * （[Anr.requiresRestart] の真偽を問わない全件）。ダイアログをキャンセルしたときに
+     * これらとマスターをすべて ON へ書き戻すことで、表示＝実際の挙動を一致させる。
+     * [restartPromptForMasterOff] が null のときは未使用。
+     */
+    val clearedAnrsOnMasterOff: List<Anr> = emptyList(),
 )
 
 /** demoMode フラグへのアクセスインターフェース。テストでは FakeDemoFlags で差し替える。 */

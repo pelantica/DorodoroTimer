@@ -37,6 +37,7 @@
     <string name="settings_anr_fgs_label">ANR-FGS startForeground 5秒ルール</string>
     <string name="settings_restart_dialog_title">アプリの再起動が必要です</string>
     <string name="settings_restart_dialog_message">「%1$s」はアプリ起動時に配線される事例（DIのキャッシュや Application.onCreate の初期化）のため、変更を反映するにはアプリの再起動が必要です。「再起動する」を選ぶと今すぐ再起動して反映します。「キャンセル」を選ぶと変更は取り消され、トグルは元の状態に戻ります。</string>
+    <string name="settings_restart_dialog_message_multi">「%1$s」はアプリ起動時に配線される事例（DIのキャッシュや Application.onCreate の初期化）のため、変更を反映するにはアプリの再起動が必要です。「再起動する」を選ぶと今すぐ再起動して反映します。「キャンセル」を選ぶと変更はすべて取り消され、デモモードとトグルは元の状態に戻ります。</string>
     <string name="settings_restart_dialog_confirm">再起動する</string>
     <string name="settings_restart_dialog_dismiss">キャンセル</string>
 

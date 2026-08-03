@@ -59,6 +59,11 @@ fun SettingsScreen(
             viewModel.confirmRestartPrompt()
             AppRestarter.restart(context)
         },
+        onDismissMasterOffRestartPrompt = viewModel::dismissMasterOffRestartPrompt,
+        onConfirmMasterOffRestart = {
+            viewModel.confirmMasterOffRestartPrompt()
+            AppRestarter.restart(context)
+        },
     )
 }
 
@@ -70,6 +75,8 @@ fun SettingsContent(
     onAnr: (Anr, Boolean) -> Unit,
     onDismissRestartPrompt: () -> Unit = {},
     onConfirmRestart: () -> Unit = {},
+    onDismissMasterOffRestartPrompt: () -> Unit = {},
+    onConfirmMasterOffRestart: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -147,7 +154,10 @@ fun SettingsContent(
         }
     }
 
+    // restartPromptFor（個別トグル1件）と restartPromptForMasterOff（マスターOFFの一括クリア）は
+    // 排他（DemoFlagsState の KDoc 参照）なので、どちらか一方だけがダイアログとして描画される。
     val restartPromptFor = state.restartPromptFor
+    val restartPromptForMasterOff = state.restartPromptForMasterOff
     if (restartPromptFor != null) {
         AlertDialog(
             onDismissRequest = onDismissRestartPrompt,
@@ -167,6 +177,32 @@ fun SettingsContent(
             },
             dismissButton = {
                 TextButton(onClick = onDismissRestartPrompt) {
+                    Text(text = stringResource(R.string.settings_restart_dialog_dismiss))
+                }
+            },
+        )
+    } else if (restartPromptForMasterOff != null) {
+        AlertDialog(
+            onDismissRequest = onDismissMasterOffRestartPrompt,
+            title = { Text(text = stringResource(R.string.settings_restart_dialog_title)) },
+            text = {
+                // joinToString の transform はnull許容のためcompose compilerがインライン扱いせず
+                // 直接 stringResource を呼べないので、先にラベル文字列のリストへ変換してから連結する。
+                val labels = restartPromptForMasterOff.map { stringResource(it.labelRes()) }
+                Text(
+                    text = stringResource(
+                        R.string.settings_restart_dialog_message_multi,
+                        labels.joinToString("、"),
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmMasterOffRestart) {
+                    Text(text = stringResource(R.string.settings_restart_dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissMasterOffRestartPrompt) {
                     Text(text = stringResource(R.string.settings_restart_dialog_dismiss))
                 }
             },
