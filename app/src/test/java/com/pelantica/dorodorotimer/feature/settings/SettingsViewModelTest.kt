@@ -154,4 +154,92 @@ class SettingsViewModelTest {
         assertTrue(vm.state.value.perAnr[Anr.ANR_06] ?: false)
         assertEquals(null, vm.state.value.restartPromptFor)
     }
+
+    @Test
+    fun setMaster_false_clearsAllOnAnrToggles() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true).also {
+            it.setOn(Anr.ANR_02, true)
+            it.setOn(Anr.ANR_06, true)
+        }
+        val vm = SettingsViewModel(fake)
+
+        vm.setMaster(false)
+
+        // requiresRestart の真偽を問わず、ON だったものはすべてクリアされる
+        assertFalse(fake.isOn(Anr.ANR_02))
+        assertFalse(fake.isOn(Anr.ANR_06))
+        assertFalse(vm.state.value.perAnr[Anr.ANR_02] ?: true)
+        assertFalse(vm.state.value.perAnr[Anr.ANR_06] ?: true)
+        assertFalse(vm.state.value.master)
+    }
+
+    @Test
+    fun setMaster_false_withRequiresRestartAnrOn_setsRestartPromptForMasterOff() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true).also {
+            it.setOn(Anr.ANR_02, true)
+            it.setOn(Anr.ANR_06, true)
+        }
+        val vm = SettingsViewModel(fake)
+
+        vm.setMaster(false)
+
+        assertEquals(listOf(Anr.ANR_02), vm.state.value.restartPromptForMasterOff)
+    }
+
+    @Test
+    fun setMaster_false_withOnlyNonRestartAnrsOn_doesNotSetRestartPromptForMasterOff() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true).also {
+            it.setOn(Anr.ANR_06, true)
+            it.setOn(Anr.ANR_FGS, true)
+        }
+        val vm = SettingsViewModel(fake)
+
+        vm.setMaster(false)
+
+        assertEquals(null, vm.state.value.restartPromptForMasterOff)
+        // ダイアログが出ないケースでも、トグル自体は一括クリアされている
+        assertFalse(fake.isOn(Anr.ANR_06))
+        assertFalse(fake.isOn(Anr.ANR_FGS))
+    }
+
+    @Test
+    fun setMaster_false_thenDismissMasterOffRestartPrompt_revertsMasterAndAllClearedToggles() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true).also {
+            it.setOn(Anr.ANR_02, true)
+            it.setOn(Anr.ANR_06, true)
+        }
+        val vm = SettingsViewModel(fake)
+        vm.setMaster(false)
+        assertEquals(listOf(Anr.ANR_02), vm.state.value.restartPromptForMasterOff)
+
+        vm.dismissMasterOffRestartPrompt()
+
+        // キャンセルしたので、マスターと requiresRestart でない ANR_06 も含めてすべて元(ON)に戻る
+        assertTrue(fake.isMasterOn())
+        assertTrue(fake.isOn(Anr.ANR_02))
+        assertTrue(fake.isOn(Anr.ANR_06))
+        assertTrue(vm.state.value.master)
+        assertTrue(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertTrue(vm.state.value.perAnr[Anr.ANR_06] ?: false)
+        assertEquals(null, vm.state.value.restartPromptForMasterOff)
+    }
+
+    @Test
+    fun setMaster_false_thenConfirmMasterOffRestartPrompt_keepsClearedState() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true).also {
+            it.setOn(Anr.ANR_02, true)
+            it.setOn(Anr.ANR_06, true)
+        }
+        val vm = SettingsViewModel(fake)
+        vm.setMaster(false)
+
+        vm.confirmMasterOffRestartPrompt()
+
+        // 再起動を選んだので、マスターOFF・個別トグルクリア済みの状態のまま維持される
+        assertFalse(fake.isMasterOn())
+        assertFalse(fake.isOn(Anr.ANR_02))
+        assertFalse(fake.isOn(Anr.ANR_06))
+        assertFalse(vm.state.value.master)
+        assertEquals(null, vm.state.value.restartPromptForMasterOff)
+    }
 }
