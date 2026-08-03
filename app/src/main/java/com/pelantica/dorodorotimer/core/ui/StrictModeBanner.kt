@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.pelantica.dorodorotimer.R
+import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
 import com.pelantica.dorodorotimer.core.debug.StrictModeViolation
 import com.pelantica.dorodorotimer.core.debug.StrictModeViolations
 
@@ -53,6 +54,10 @@ private val BannerVerticalPadding = 8.dp
  */
 @Composable
 fun StrictModeBanner(modifier: Modifier = Modifier) {
+    // ミュート中は表示だけ止める（検出・記録・logcat は続いている）。デモ録画用。
+    val muted by StrictModeBannerSettings.muted.collectAsState()
+    if (muted) return
+
     val violations by StrictModeViolations.violations.collectAsState()
     // ✕ を押した時点の件数。以降に新しい違反が増えたらまた出す
     // （消したまま二度と出ないと、あとから踏んだ違反に気づけない）。

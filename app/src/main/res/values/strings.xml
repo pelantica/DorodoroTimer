@@ -79,4 +79,7 @@
     <string name="strictmode_detail_collapse">折りたたむ</string>
     <string name="strictmode_detail_clear">クリア</string>
     <string name="strictmode_detail_close">閉じる</string>
+    <string name="settings_devtools_section_title">開発ツール</string>
+    <string name="settings_strictmode_banner_label">StrictMode 違反バナー</string>
+    <string name="settings_strictmode_banner_desc">メインスレッドI/O違反を画面上部に表示する。OFFでも検出・logcat出力は続く（デモ録画用）</string>
 </resources>

@@ -3,6 +3,7 @@ package com.pelantica.dorodorotimer.app
 import android.app.Application
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
+import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
 import com.pelantica.dorodorotimer.core.debug.StrictModeInstaller
 import com.pelantica.dorodorotimer.di.appModule
 import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
@@ -35,5 +36,8 @@ class DorodoroApplication : Application() {
             //  ANR-02 トグルも ON にして、アプリを BG に落とした後に発火させること。
             AnrLogUploadScheduler.enqueue(this)
         }
+        // onCreate の末尾に置く: 同じ prefs を DemoConfig.isOn が既にロード済みなので
+        // ここで読んでも違反が出ず、起動時違反のトレースの帰属も変わらない。
+        StrictModeBannerSettings.init(this)
     }
 }
