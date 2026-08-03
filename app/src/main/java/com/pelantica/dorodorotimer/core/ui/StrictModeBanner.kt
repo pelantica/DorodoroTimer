@@ -11,8 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -135,8 +139,9 @@ private fun StrictModeBannerContent(
 }
 
 /**
- * Android が出力したスタックトレースをそのまま見せる。整形すると
- * 「どのフレームが自分のコードか」を読む練習にならないので、原文のまま出す。
+ * 違反の一覧。折りたたみ状態では「番号・種類・犯人フレーム（自分のコードの最初の行）」
+ * だけの省略表示にし、タップで Android が出力したスタックトレース原文に展開する。
+ * 展開後を整形しないのは、「どのフレームが自分のコードか」を原文で読む練習のため。
  */
 @Composable
 private fun StrictModeDetailDialog(
@@ -144,22 +149,75 @@ private fun StrictModeDetailDialog(
     onClear: () -> Unit,
     onClose: () -> Unit,
 ) {
+    // 開いた時点のスナップショットで固定する。表示中に新しい違反が来ると
+    // 「新しい順」の index がずれて、展開中の項目が別の違反にすり替わるため。
+    val newestFirst = remember { violations.asReversed().toList() }
+    // 展開中の項目（newestFirst の index）。1件だけなら展開の手間を省いて開いておく。
+    var expandedIndices by remember {
+        mutableStateOf(if (newestFirst.size == 1) setOf(0) else emptySet<Int>())
+    }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(stringResource(R.string.strictmode_detail_title, violations.size)) },
+        title = { Text(stringResource(R.string.strictmode_detail_title, newestFirst.size)) },
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 360.dp)
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // 新しいものから見せる（直前の操作で踏んだ違反が一番上に来る）。
-                violations.asReversed().forEach { violation ->
-                    Text(
-                        text = violation.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 16.dp),
-                    )
+                // 新しいものが上（直前の操作で踏んだ違反が先頭）。番号は古い順に #1〜。
+                newestFirst.forEachIndexed { index, violation ->
+                    if (index > 0) HorizontalDivider()
+                    val isExpanded = index in expandedIndices
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                expandedIndices =
+                                    if (isExpanded) expandedIndices - index
+                                    else expandedIndices + index
+                            }
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.strictmode_detail_item_title,
+                                        newestFirst.size - index,
+                                        violation.kind,
+                                    ),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                                Text(
+                                    text = violation.culpritFrame(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Icon(
+                                imageVector = if (isExpanded) {
+                                    Icons.Filled.ExpandLess
+                                } else {
+                                    Icons.Filled.ExpandMore
+                                },
+                                contentDescription = stringResource(
+                                    if (isExpanded) R.string.strictmode_detail_collapse
+                                    else R.string.strictmode_detail_expand
+                                ),
+                            )
+                        }
+                        if (isExpanded) {
+                            Text(
+                                text = violation.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -170,6 +228,23 @@ private fun StrictModeDetailDialog(
             TextButton(onClick = onClear) { Text(stringResource(R.string.strictmode_detail_clear)) }
         },
     )
+}
+
+/**
+ * 自分のコードのフレーム。パッケージ名は applicationId ではなくコードのルートパッケージ
+ * （debug ビルドで suffix が付いても変わらない）。リネーム時はここも追従すること。
+ */
+private const val APP_FRAME_PREFIX = "at com.pelantica.dorodorotimer"
+
+/**
+ * 省略表示に使う「犯人フレーム」＝トレース中で最初に現れる自分のコードの行。
+ * 自分のフレームが無い場合（フレームワーク内で完結する違反）は先頭フレームで代用する。
+ */
+private fun StrictModeViolation.culpritFrame(): String {
+    val frames = detail.lines().map { it.trim() }
+    val culprit = frames.firstOrNull { it.startsWith(APP_FRAME_PREFIX) }
+        ?: frames.firstOrNull { it.startsWith("at ") }
+    return culprit?.removePrefix("at ") ?: kind
 }
 
 @StringRes

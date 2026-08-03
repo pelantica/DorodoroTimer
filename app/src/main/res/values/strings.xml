@@ -74,6 +74,9 @@
     <string name="strictmode_kind_network">メインスレッドでネットワーク</string>
     <string name="strictmode_kind_other">メインスレッドで避けたい処理</string>
     <string name="strictmode_detail_title">StrictMode 違反 %1$d件</string>
+    <string name="strictmode_detail_item_title">#%1$d %2$s</string>
+    <string name="strictmode_detail_expand">展開</string>
+    <string name="strictmode_detail_collapse">折りたたむ</string>
     <string name="strictmode_detail_clear">クリア</string>
     <string name="strictmode_detail_close">閉じる</string>
 </resources>
