@@ -2,6 +2,8 @@ package com.pelantica.dorodorotimer.app
 
 import android.app.Application
 import android.util.Log
+import com.pelantica.dorodorotimer.BuildConfig
+import com.pelantica.dorodorotimer.app.startup.StartupGate
 import com.pelantica.dorodorotimer.app.startup.AnalyticsInitializer
 import com.pelantica.dorodorotimer.app.startup.CrashReportingInitializer
 import com.pelantica.dorodorotimer.app.startup.FeatureFlagInitializer
@@ -55,6 +57,13 @@ class DorodoroApplication : Application() {
                 "StartupInitializer",
                 "total sync init time: ${System.currentTimeMillis() - startupStartMs}ms"
             )
+        } else if (BuildConfig.DEBUG) {
+            // 正版: 同じ6つの初期化を「予約」だけして即返す（実行はワーカースレッド）。
+            //  ANR版との差分は「呼ぶ場所」だけ＝これが処方「onCreateは予約だけ。仕事をしない」の実物。
+            //  BuildConfig.DEBUG で括るのは、6つが教材用の「SDKもどき」（純粋な重り）であり、
+            //  リリースの製品には初期化すべき本物のSDKが存在しないため。本物のSDKを抱える
+            //  アプリなら、この else 側こそが本来の実装になる。
+            StartupGate.scheduleAll(this)
         }
         startKoin {
             androidContext(this@DorodoroApplication)
