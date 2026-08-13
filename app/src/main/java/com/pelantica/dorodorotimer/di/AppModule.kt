@@ -52,7 +52,6 @@ val appModule = module {
     // Room（「スレッドを管理してくれる」側）。骨格では生成のみ。
     single {
         Room.databaseBuilder(androidContext(), AppDatabase::class.java, "dorodoro.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2)
             .build()
     }
     single { get<AppDatabase>().focusSessionDao() }
