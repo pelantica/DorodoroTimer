@@ -56,7 +56,7 @@ class StatsSeedParityTest {
                 )
             )
         }
-        val offloadedResult = OffloadedStatsRepository(dao, seedDemoData = false).dailyStats()
+        val offloadedResult = OffloadedStatsRepository(dao, seedDemoData = { false }).dailyStats()
 
         assertTrue(blockingResult.isNotEmpty())
         assertEquals(blockingResult, offloadedResult)

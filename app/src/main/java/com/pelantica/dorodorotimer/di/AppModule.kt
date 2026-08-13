@@ -66,23 +66,33 @@ val appModule = module {
     // [ANR-01] demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
     //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
     //  原因が「実装まるごとの性質」なので DI で実装ごと差し替える（規約のDI-swapパターン）。
-    //  seedDemoData には master トグル（DemoConfig.enabled）をそのまま渡す。ANR-01 個別トグルが
+    //  seedDemoData には master トグル（DemoConfig.enabled）を**読む関数**を渡す。ANR-01 個別トグルが
     //  OFF でも master が ON（＝demoMode中）なら Offloaded 側にも同じデモデータを入れて、
     //  「ANRするかしないか」だけを公平に対比できるようにする。master が OFF（リリース）のときは
     //  絶対に false になり、架空データを作らない。
+    //  値ではなく関数で渡すのは、この single が生成後キャッシュされるため（理由は
+    //  OffloadedStatsRepository の KDoc）。どちらの実装を注入するかは生成時に固定でよい
+    //  ＝ ANR_01 が requiresRestart = true であることと対応する。
     single<StatsRepository> {
         if (DemoConfig.isOn(Anr.ANR_01)) {
             BlockingStatsRepository(get())
         } else {
-            OffloadedStatsRepository(get(), seedDemoData = DemoConfig.enabled)
+            OffloadedStatsRepository(get(), seedDemoData = { DemoConfig.enabled })
         }
     }
 
     viewModel { TimerViewModel(get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
-    // 第2引数は実データ専用の読み口。ANR-01 の差し替え対象（第1引数）とは独立に、
-    // 常に安全な Room 経路＝OffloadedStatsRepository(seedDemoData=false) を渡す。
-    viewModel { StatsViewModel(get(), OffloadedStatsRepository(get()), { DemoConfig.enabled }) }
+    // realRepo は実データ専用の読み口。ANR-01 の差し替え対象（demoRepo）とは独立に、
+    // 常に安全な Room 経路＝シードを投入しない OffloadedStatsRepository を渡す。
+    // demoRepo と realRepo は同じ型なので、取り違え防止に名前付き引数で渡す。
+    viewModel {
+        StatsViewModel(
+            demoRepo = get(),
+            realRepo = OffloadedStatsRepository(get()),
+            isDemoMode = { DemoConfig.enabled },
+        )
+    }
 }
 
 // TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。

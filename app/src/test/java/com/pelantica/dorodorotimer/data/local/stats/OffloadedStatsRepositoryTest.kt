@@ -99,7 +99,7 @@ class OffloadedStatsRepositoryTest {
     fun dailyStats_seedDemoDataFalse_neverSeeds_releaseSafety() = runTest {
         // seedDemoData のデフォルトは false（release既定）。既存データが空でも架空データを作らない。
         val dao = FakeFocusSessionDao()
-        val repo = OffloadedStatsRepository(dao, seedDemoData = false, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { false }, seedRowCount = 10)
 
         val result = repo.dailyStats()
 
@@ -111,7 +111,7 @@ class OffloadedStatsRepositoryTest {
     @Test
     fun dailyStats_seedDemoDataTrue_reseedsThenAggregatesFocusOnly() = runTest {
         val dao = FakeFocusSessionDao()
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         val result = repo.dailyStats()
 
@@ -129,7 +129,7 @@ class OffloadedStatsRepositoryTest {
         val dao = FakeFocusSessionDao().apply {
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L))
         }
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         val first = repo.dailyStats().sumOf { it.focusCount }
         val second = repo.dailyStats().sumOf { it.focusCount }
@@ -148,7 +148,7 @@ class OffloadedStatsRepositoryTest {
         val dao = FakeFocusSessionDao().apply {
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 300, completedAtEpochMs = 86_400_000L))
         }
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         repo.dailyStats()
         repo.dailyStats()
@@ -164,7 +164,7 @@ class OffloadedStatsRepositoryTest {
         val dao = FakeFocusSessionDao().apply {
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 999, completedAtEpochMs = 86_400_000L))
         }
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         val result = repo.dailyStats()
 
@@ -179,10 +179,35 @@ class OffloadedStatsRepositoryTest {
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L))
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L, isDemo = true))
         }
-        val repo = OffloadedStatsRepository(dao, seedDemoData = false)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { false })
 
         val result = repo.dailyStats()
 
         assertEquals(1, result.sumOf { it.focusCount })
+    }
+
+    @Test
+    fun dailyStats_reevaluatesSeedFlagOnEveryCall() = runTest {
+        // このクラスは Koin の single としてキャッシュされるため、seedDemoData を生成時の値で
+        // 固定すると、master トグルを再起動なしで OFF→ON したときシードが投入されず、
+        // 「デモ用シードデータ」欄に実データ（isDemo=false）が出てしまう。毎回読み直すこと。
+        val dao = FakeFocusSessionDao().apply {
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 999, completedAtEpochMs = 86_400_000L))
+        }
+        var demoMode = false
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { demoMode }, seedRowCount = 10)
+
+        // master OFF のあいだ: シードは投入されず、実データだけが返る
+        val whileOff = repo.dailyStats()
+        assertEquals(0, dao.insertCallCount)
+        assertEquals(1, whileOff.sumOf { it.focusCount })
+
+        // 同じインスタンスのまま master を ON にする（＝プロセス再起動なし）
+        demoMode = true
+        val whileOn = repo.dailyStats()
+
+        assertEquals(10, dao.insertCallCount)                          // シードが投入された
+        assertEquals(8, whileOn.sumOf { it.focusCount })               // 返るのはシード由来のみ
+        assertEquals(8 * 1500, whileOn.sumOf { it.totalFocusSeconds }) // 実データの 999 は混ざらない
     }
 }
