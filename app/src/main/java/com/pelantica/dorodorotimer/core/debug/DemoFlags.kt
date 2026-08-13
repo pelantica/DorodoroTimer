@@ -37,7 +37,7 @@ interface DemoFlags {
 class SharedPrefsDemoFlags(context: Context) : DemoFlags {
 
     private val prefs = context.applicationContext
-        .getSharedPreferences("demo_flags", MODE_PRIVATE)
+        .getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
     override fun isMasterOn(): Boolean = prefs.getBoolean(KEY_MASTER, false)
 
@@ -57,6 +57,8 @@ class SharedPrefsDemoFlags(context: Context) : DemoFlags {
     )
 
     companion object {
+        /** [StrictModeBannerSettings] と共有する（起動時ロードを1回に抑えるため）。 */
+        internal const val PREFS_NAME = "demo_flags"
         private const val KEY_MASTER = "demo_master"
     }
 }

@@ -28,6 +28,7 @@ import com.pelantica.dorodorotimer.R
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.AppRestarter
 import com.pelantica.dorodorotimer.core.debug.DemoFlagsState
+import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
 import com.pelantica.dorodorotimer.core.ui.SectionCard
 import org.koin.androidx.compose.koinViewModel
 
@@ -48,6 +49,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    // StrictMode バナーは demoMode（ViewModel が扱うフラグ）と独立したデバッグ基盤なので、
+    // バナー本体と同じくシングルトンを直接購読する（ステートレスな Content には値で渡す）。
+    val strictModeBannerMuted by StrictModeBannerSettings.muted.collectAsState()
     val context = LocalContext.current
     SettingsContent(
         modifier = modifier,
@@ -59,6 +63,8 @@ fun SettingsScreen(
             viewModel.confirmRestartPrompt()
             AppRestarter.restart(context)
         },
+        strictModeBannerMuted = strictModeBannerMuted,
+        onStrictModeBannerMuted = StrictModeBannerSettings::setMuted,
     )
 }
 
@@ -70,6 +76,8 @@ fun SettingsContent(
     onAnr: (Anr, Boolean) -> Unit,
     onDismissRestartPrompt: () -> Unit = {},
     onConfirmRestart: () -> Unit = {},
+    strictModeBannerMuted: Boolean = false,
+    onStrictModeBannerMuted: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -143,6 +151,45 @@ fun SettingsContent(
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 開発ツールセクション（demoMode とは独立。ANR トグルと混ざらないよう節を分ける）
+        Text(
+            text = stringResource(R.string.settings_devtools_section_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SectionCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_strictmode_banner_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_strictmode_banner_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    // スイッチは「表示する」の肯定形。ON = ミュートしていない。
+                    checked = !strictModeBannerMuted,
+                    onCheckedChange = { shown -> onStrictModeBannerMuted(!shown) },
+                )
             }
         }
     }
