@@ -1,5 +1,6 @@
 package com.pelantica.dorodorotimer.feature.stats
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pelantica.dorodorotimer.R
 import com.pelantica.dorodorotimer.core.debug.Anr
@@ -84,12 +86,12 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
                 statsCard(uiState.realStats)
             }
             sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
-            statsCard(uiState.demoStats.orEmpty())
+            statsCard(demoStats)
         }
     }
 }
 
-private fun LazyListScope.sectionHeader(labelRes: Int, topPadding: androidx.compose.ui.unit.Dp = 0.dp) {
+private fun LazyListScope.sectionHeader(@StringRes labelRes: Int, topPadding: Dp = 0.dp) {
     item {
         Text(
             text = stringResource(labelRes),
