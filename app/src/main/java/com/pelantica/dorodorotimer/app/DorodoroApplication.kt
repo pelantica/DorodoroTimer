@@ -1,7 +1,6 @@
 package com.pelantica.dorodorotimer.app
 
 import android.app.Application
-import com.pelantica.dorodorotimer.BuildConfig
 import com.pelantica.dorodorotimer.app.startup.StartupGate
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
@@ -32,13 +31,13 @@ class DorodoroApplication : Application() {
             //  総量が原因＝「千のかすり傷」。実機校正の記録は StartupGate の KDoc。
             //  処方: 下の else 側。ほかに各 init() を Koin lazyModule 化して先送りする手もある。
             StartupGate.runOnMainThread(this)
-        } else if (BuildConfig.DEBUG) {
+        } else {
             // 正版: 同じ6つをワーカースレッドへ「予約」して即返す。仕事の総量は1ミリも
             //  減っていない（サボりではない）＝処方「onCreateは予約だけ。仕事をしない」の実物。
-            //  BuildConfig.DEBUG で括るのは、6つが教材用の「SDKもどき」（純粋な重り）であり、
-            //  リリースの製品には初期化すべき本物のSDKが存在しないため（Firebase は
-            //  FirebaseInitProvider が自動で初期化するので onCreate で呼ぶものが無い）。
-            //  本物のSDKを抱えるアプリなら、この else 側こそが本来の実装になる。
+            //  ビルド種別で括らずリリースでも走らせるのは、このアプリが一旦は教材だから。
+            //  TODO(製品化): 6つは教材用の「SDKもどき」＝純粋な重りなので、製品として出すときは
+            //   初期化すべき本物のSDKに置き換える（そのまま残すと毎起動9秒ぶんのCPUと
+            //   数千回のfsyncを焼く）。本物のSDKを抱えるアプリでは、この else 側が本来の実装。
             StartupGate.runOnWorkerThread(this)
         }
         startKoin {
