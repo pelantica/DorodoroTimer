@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,43 +52,74 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
 
 @Composable
 fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
-    val demoStats = uiState.demoStats
-    when {
-        uiState.isLoading -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(text = stringResource(R.string.stats_placeholder))
+    // 読み込み表示はセクション単位。画面全体を覆うスピナーは出さない
+    // （片方が読めていればその内容は出せるので、全部を隠す理由がない）。
+    // demoMode OFF で読み終わっていて実データも空: 従来どおり中央に空表示
+    if (!uiState.isDemoMode && !uiState.isRealLoading && uiState.realStats.isEmpty()) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text(text = stringResource(R.string.stats_empty))
         }
-        // demoMode OFF（通常時）: 実データだけを従来どおり1枚で
-        demoStats == null && uiState.realStats.isEmpty() ->
-            Box(modifier = modifier, contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.stats_empty))
-            }
-        demoStats == null -> LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-        ) {
-            statsCard(uiState.realStats)
+        return
+    }
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+    ) {
+        if (!uiState.isDemoMode) {
+            // demoMode OFF（通常時）: 実データだけを従来どおり1枚で（見出しなし）
+            if (uiState.isRealLoading) loadingCard(R.string.stats_loading)
+            else statsCard(uiState.realStats)
+            return@LazyColumn
         }
         // demoMode ON: 実データを上に、デモ用シードの集計を下に（実データが埋もれないように）
-        else -> LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-        ) {
-            sectionHeader(R.string.stats_section_real)
-            if (uiState.realStats.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.stats_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                    )
-                }
-            } else {
-                statsCard(uiState.realStats)
+        sectionHeader(R.string.stats_section_real)
+        when {
+            uiState.isRealLoading -> loadingCard(R.string.stats_loading)
+            uiState.realStats.isEmpty() -> item {
+                Text(
+                    text = stringResource(R.string.stats_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                )
             }
-            sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
-            statsCard(demoStats)
+            else -> statsCard(uiState.realStats)
         }
+        sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
+        // シード投入を伴って数秒かかる。前回の集計を出したままにせず中身を差し替える
+        // （出したままだと「読み終わった値」に見えてしまうため）。
+        if (uiState.isDemoLoading) loadingCard(R.string.stats_loading_demo)
+        else statsCard(uiState.demoStats.orEmpty())
+    }
+}
+
+/** 読み込み中のセクション。[statsCard] と同じ白いカードの中にスピナーを置く。 */
+private fun LazyListScope.loadingCard(@StringRes labelRes: Int) {
+    item {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(SectionCardCorner))
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .padding(vertical = 32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingIndicator(labelRes = labelRes)
+        }
+    }
+}
+
+/** スピナーと説明文の縦並び。 */
+@Composable
+private fun LoadingIndicator(@StringRes labelRes: Int, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        CircularProgressIndicator()
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp),
+        )
     }
 }
 
