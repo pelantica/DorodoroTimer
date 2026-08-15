@@ -1,15 +1,8 @@
 package com.pelantica.dorodorotimer.app
 
 import android.app.Application
-import android.util.Log
 import com.pelantica.dorodorotimer.BuildConfig
 import com.pelantica.dorodorotimer.app.startup.StartupGate
-import com.pelantica.dorodorotimer.app.startup.AnalyticsInitializer
-import com.pelantica.dorodorotimer.app.startup.CrashReportingInitializer
-import com.pelantica.dorodorotimer.app.startup.FeatureFlagInitializer
-import com.pelantica.dorodorotimer.app.startup.ImageLoaderInitializer
-import com.pelantica.dorodorotimer.app.startup.PerformanceMonitorInitializer
-import com.pelantica.dorodorotimer.app.startup.RemoteConfigInitializer
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
@@ -29,41 +22,24 @@ class DorodoroApplication : Application() {
         // （SharedPreferencesImpl#awaitLoadedLocked）。自分のコードが最初の違反になる。
         StrictModeInstaller.install()
         DemoConfig.init(this)
+        // [ANR-02] 「SDK風」初期化6つを、どのスレッドで走らせるか。
+        //  顔ぶれ・順番・作業量は StartupGate.runAll にだけ書いてあり、下の2経路はどちらも
+        //  それを呼ぶ。つまり ANR するかしないかの差分は、この呼び分けの1行だけになる。
         if (DemoConfig.isOn(Anr.ANR_02)) {
-            // [ANR-02] 「SDK風」初期化を Application.onCreate から同期的に、1行ずつ列挙して呼ぶ。
-            //  1行ずつは無害に見える（呼び出し側から重さが見えない）が、合計で起動ANRのしきい値
-            //  (入力ディスパッチ5秒)を超える「千のかすり傷」＝単独犯ではなく初期化の総量が原因。
-            //  処方: 各 init() を Koin lazyModule 化する、あるいは必要時まで先送りする。
-            //
-            //  実機校正の記録（エミュ API 36 (sdk_gphone16k_arm64) / 2026-07-30、`adb shell am start -W`）:
-            //   - ON:  TotalTime 9080〜9934ms（onCreate内の同期初期化だけで合計6.6〜8.0秒、
-            //          `Log.d` した各SDK風初期化の内訳は各ファイルのKDoc参照。1つが突出せず分散）。
-            //   - OFF: TotalTime 1497〜2222ms（このブロックが丸ごとスキップされるため無関係）。
-            //   - 差分: 約7300〜8400ms。目標の5000ms超を安定して達成。
-            //   - 実機ANR確認: 起動中に `adb shell input keyevent KEYCODE_DPAD_CENTER` を送ると
-            //     `ActivityManager: ANR in com.pelantica.dorodorotimer ... Reason: Input
-            //     dispatching timed out (Application does not have a focused window).` が発生
-            //     （logcat実測）。一方 `adb shell input tap` の単純タップは Android 12+ の
-            //     スプラッシュ用 `ActivityRecordInputSink`（NO_INPUT_CHANNEL）に吸収され ANR を
-            //     誘発しない場合がある点に注意（実機デモ台本ではキー入力を使う想定にする）。
-            val startupStartMs = System.currentTimeMillis()
-            AnalyticsInitializer.init(this)
-            CrashReportingInitializer.init(this)
-            RemoteConfigInitializer.init(this)
-            FeatureFlagInitializer.init(this)
-            ImageLoaderInitializer.init(this)
-            PerformanceMonitorInitializer.init(this)
-            Log.d(
-                "StartupInitializer",
-                "total sync init time: ${System.currentTimeMillis() - startupStartMs}ms"
-            )
+            // [ANR-02] メイン（onCreate のスレッド）で同期実行する。
+            //  呼び出し側から見ると1行で重さが見えないが、中では6つ分を丸ごと払い、合計で
+            //  起動ANRのしきい値（入力ディスパッチ5秒）を超える。単独犯ではなく初期化の
+            //  総量が原因＝「千のかすり傷」。実機校正の記録は StartupGate の KDoc。
+            //  処方: 下の else 側。ほかに各 init() を Koin lazyModule 化して先送りする手もある。
+            StartupGate.runOnMainThread(this)
         } else if (BuildConfig.DEBUG) {
-            // 正版: 同じ6つの初期化を「予約」だけして即返す（実行はワーカースレッド）。
-            //  ANR版との差分は「呼ぶ場所」だけ＝これが処方「onCreateは予約だけ。仕事をしない」の実物。
+            // 正版: 同じ6つをワーカースレッドへ「予約」して即返す。仕事の総量は1ミリも
+            //  減っていない（サボりではない）＝処方「onCreateは予約だけ。仕事をしない」の実物。
             //  BuildConfig.DEBUG で括るのは、6つが教材用の「SDKもどき」（純粋な重り）であり、
-            //  リリースの製品には初期化すべき本物のSDKが存在しないため。本物のSDKを抱える
-            //  アプリなら、この else 側こそが本来の実装になる。
-            StartupGate.scheduleAll(this)
+            //  リリースの製品には初期化すべき本物のSDKが存在しないため（Firebase は
+            //  FirebaseInitProvider が自動で初期化するので onCreate で呼ぶものが無い）。
+            //  本物のSDKを抱えるアプリなら、この else 側こそが本来の実装になる。
+            StartupGate.runOnWorkerThread(this)
         }
         startKoin {
             androidContext(this@DorodoroApplication)
