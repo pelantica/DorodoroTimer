@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
 import com.pelantica.dorodorotimer.core.ui.DorodoroTimerTheme
 import com.pelantica.dorodorotimer.core.ui.StrictModeBanner
 import com.pelantica.dorodorotimer.feature.settings.SettingsScreen
@@ -39,11 +40,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         selectedTab = intent.toDeepLinkTab() ?: Tab.TIMER
+        // 初期タブもパンくずに積む（セッションの操作履歴がここから始まる）
+        CrashReportBreadcrumbs.tabShown(selectedTab.name)
         setContent {
             DorodoroTimerTheme {
                 DorodoroApp(
                     selectedTab = selectedTab,
-                    onSelectTab = { selectedTab = it },
+                    onSelectTab = ::selectTab,
                 )
             }
         }
@@ -56,7 +59,18 @@ class MainActivity : ComponentActivity() {
         // ランチャーからの復帰（ACTION_MAIN・data なし）でもここに来る。
         // ディープリンクでないときはタブ指定なし＝表示中のタブを維持する
         // （無条件に代入すると、統計タブを見ていてもタイマーに引き戻される）。
-        intent.toDeepLinkTab()?.let { selectedTab = it }
+        intent.toDeepLinkTab()?.let(::selectTab)
+    }
+
+    /**
+     * タブの変更はここに一本化し、Crashlytics のパンくずに残す
+     * （ANRレポートで「直前にどの画面を触っていたか」を辿れるように）。
+     * 同じタブの再選択（下部バーの再タップ・同じタブへの通知再タップ）は積まない。
+     */
+    private fun selectTab(tab: Tab) {
+        if (tab == selectedTab) return
+        selectedTab = tab
+        CrashReportBreadcrumbs.tabShown(tab.name)
     }
 }
 

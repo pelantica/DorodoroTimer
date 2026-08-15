@@ -4,6 +4,7 @@ import android.app.Application
 import com.pelantica.dorodorotimer.app.startup.StartupGate
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
+import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
 import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
 import com.pelantica.dorodorotimer.core.debug.StrictModeInstaller
 import com.pelantica.dorodorotimer.di.appModule
@@ -21,6 +22,10 @@ class DorodoroApplication : Application() {
         // （SharedPreferencesImpl#awaitLoadedLocked）。自分のコードが最初の違反になる。
         StrictModeInstaller.install()
         DemoConfig.init(this)
+        // demoMode のトグル状態を Crashlytics のカスタムキーに載せる。ANR レポートを開いたとき
+        // 「どのトグルが ON のセッションだったか」がスタックを読む前に分かる。
+        // ANR-02 の分岐より前に置く: 直後の起動フリーズ中のセッションにもキーが乗るように。
+        CrashReportBreadcrumbs.setDemoFlags(DemoConfig.current().snapshot())
         // [ANR-02] 「SDK風」初期化6つを、どのスレッドで走らせるか。
         //  顔ぶれ・順番・作業量は StartupGate.runAll にだけ書いてあり、下の2経路はどちらも
         //  それを呼ぶ。つまり ANR するかしないかの差分は、この呼び分けの1行だけになる。
