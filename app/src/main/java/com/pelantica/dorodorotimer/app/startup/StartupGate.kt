@@ -65,11 +65,20 @@ internal object StartupGate {
      * 正版: [runOnMainThread] と**同じ6つ**をワーカースレッドへ「予約」して即返す。
      * メインスレッドに残るコストは launch の起動のみ。
      *
-     * @param dispatcher テストから差し替えるための注入口。既定は CPU 向けプール。
+     * 既定が [Dispatchers.IO] なのは、6つのうち3つ（[CrashReportingInitializer]・
+     * [RemoteConfigInitializer]・[ImageLoaderInitializer]）が `fd.sync()` や `commit()` で
+     * **ブロッキングI/Oを行う**ため。[Dispatchers.Default] はコア数上限の CPU 向けプールなので、
+     * そこで9秒近くブロックすると2コア機ではプールの半分を占有してしまう
+     * （ANR の処方を見せるコードとしては主張と逆のシグナルになる）。
+     * [Dispatchers.IO] は弾力的にスレッドを増やすので、残り3つの CPU 処理を載せても実害が小さい。
+     * CPU 側と I/O 側で厳密に分けない（＝1本の順次実行に保つ）のは、ANR版と
+     * 「同じ6つを同じ順番で」実行する対比を崩さないため。
+     *
+     * @param dispatcher テストから差し替えるための注入口。
      */
     fun runOnWorkerThread(
         context: Context,
-        dispatcher: CoroutineDispatcher = Dispatchers.Default,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
     ) {
         // Activity 等を掴んでリークしないよう applicationContext に付け替える
         val appContext = context.applicationContext
