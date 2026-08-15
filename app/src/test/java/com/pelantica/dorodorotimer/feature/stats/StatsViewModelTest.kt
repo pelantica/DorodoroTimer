@@ -44,18 +44,8 @@ class StatsViewModelTest {
     }
 
     @Test
-    fun reload_firstTime_isInitialLoading_notRefreshing() = runTest(dispatcher) {
-        // 初回は出せるものが何も無いので全画面スピナー側。進捗バーは出さない。
-        val viewModel = vm(isDemoMode = true)
-        viewModel.reload()
-
-        assertTrue(viewModel.uiState.value.isInitialLoading)
-        assertFalse(viewModel.uiState.value.isRefreshing)
-    }
-
-    @Test
-    fun reload_secondTime_isRefreshing_andKeepsPreviousData() = runTest(dispatcher) {
-        // 2回目以降は前回の内容を残したまま進捗バーを出す（初回スピナーには戻らない）
+    fun reload_secondTime_keepsPreviousDataWithoutFullScreenSpinner() = runTest(dispatcher) {
+        // 2回目以降は前回の内容を残したまま差し替える（初回の全画面スピナーには戻らない）
         val realRepo = FakeStatsRepository(
             listOf(DailyStat(dateEpochDay = 2L, focusCount = 3, totalFocusSeconds = 4500))
         )
@@ -66,7 +56,6 @@ class StatsViewModelTest {
 
         viewModel.reload()
 
-        assertTrue(viewModel.uiState.value.isRefreshing)
         assertFalse(viewModel.uiState.value.isInitialLoading)
         assertEquals(realRepo.stats, viewModel.uiState.value.realStats) // 前回値が残っている
     }
@@ -111,7 +100,6 @@ class StatsViewModelTest {
         viewModel.reload()
         testScheduler.runCurrent()
         assertFalse(viewModel.uiState.value.isInitialLoading)
-        assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
         assertNull(viewModel.uiState.value.demoStats)
         // demoMode OFF ではデモ側の読み口（ANR-01差し替え点）に触らない
