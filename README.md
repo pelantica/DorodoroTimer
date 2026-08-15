@@ -10,25 +10,25 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 
 ## demoMode（教材と製品の両立）
 
-標準コードは**正しい（リリース品質）実装**。`DemoConfig.enabled`（設定画面のトグル）が **ON のときだけ** ANR 誘発経路を通る。リリースは常に OFF。
+標準コードは**正しい（リリース品質）実装**。マスタートグル＋ ANR ごとの個別トグル（設定画面）があり、`DemoConfig.isOn(Anr.XX)`（= master AND 個別）が **ON のときだけ** ANR 誘発経路を通る。リリースは常に OFF。
 
 - **分岐は原則 DI（Koin）で実装ごと差し替え**（呼び出し側はクリーン、before/after が実装ファイル単位で並ぶ）。
-- DI で差し替えにくい局所だけ、その場に `if (DemoConfig.enabled) { /* [ANR-xx] */ }`。
+- DI で差し替えにくい局所だけ、その場に `if (DemoConfig.isOn(Anr.XX)) { /* [ANR-xx] */ }`。
 
 ## スライド事例 ↔ コード 対応表
 
-> 骨格段階のため配置（file:line）は未確定。各パターン実装時に埋める。軸: busy=作業中 / waiting=待たされ。
+> 軸: busy=作業中 / waiting=待たされ。行番号は実装が動くとずれるので、確実に辿るならマーカー `[ANR-xx]` で grep する。
 
 | ANR-ID | 事例 | 軸 | 締切種別 | 配置 | 処方 | 状態 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ANR-01 | メインスレッド I/O（Room vs SQLDelight） | busy | input | _未_ | `withContext(IO)` / Room の suspend DAO / SQLDelight は自前で offload | 未着手 |
-| ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | _未_ | Koin `lazyModule` / 初期化の遅延・取捨選択 | 未着手 |
-| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | _未_ | シングルトン遅延評価 / 重い処理をメイン外へ | 未着手 |
+| ANR-01 | メインスレッド I/O（生SQLite vs Room） | busy | input | `di/AppModule.kt:76`（DI差し替え）/ `data/local/stats/BlockingStatsRepository.kt:20` | Room の suspend DAO に任せる（守ってくれないライブラリは自前で `withContext(IO)`） | 実装済み |
+| ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt:27` / `app/startup/StartupGate.kt:58` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
+| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `feature/stats/StatsScreen.kt:42`（フックのみ） | シングルトン遅延評価 / 重い処理をメイン外へ | フックのみ（本体未実装） |
 | ANR-04 | Keystore 操作（Binder + セキュアHW IPC） | waiting | binder | _未_ | 鍵操作を IO へ | 未着手（速射枠） |
-| ANR-05 | WorkManager / JobService | waiting | job | _未_ | doWork を正しく実装 | 未着手 |
-| ANR-06 | BroadcastReceiver（再起動でリマインダ再設定 等） | busy/waiting | broadcast | _未_ | `goAsync()` / 処理をメイン外へ | 未着手 |
+| ANR-05 | WorkManager / JobService（ANR-02 連結） | waiting | job | `service/work/AnrLogUploadScheduler.kt:18` / `AnrLogUploadWorker.kt:26` | doWork 自体は正しく軽量（無罪）。真犯人は起こされた先の重い onCreate | 実装済み |
+| ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt:22` / `service/ReceiverWork.kt:26` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
 | ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
-| ANR-FGS | ForegroundService の startForeground 5秒ルール | waiting | service | `service/TimerForegroundService.kt` | 即 startForeground / 重い初期化を後へ | 未着手（CFP外・目玉候補） |
+| ANR-FGS | ForegroundService の startForeground 5秒ルール | waiting | service | _未_（実体候補は `service/AmbientSoundService.kt`。現状 ANR フック無し） | 即 startForeground / 重い初期化を後へ | 未着手（CFP外・目玉候補） |
 
 CFP 外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は Notion のバックログに記録済み。採否は後日選定。
 
@@ -39,6 +39,8 @@ CFP 外の追加候補（重い同期計算 / Compose 再コンポーズ / Conte
 | Room | suspend/Flow DAO は IO へ逃す（守ってくれる側） | 「守ってくれる」例 |
 | SQLDelight | クエリはデフォルト同期実行（守ってくれない側） | 「守ってくれない」例＝事例①の正体 |
 | DataStore | suspend/Flow で非同期 | 補助 |
+
+> ⚠️ SQLDelight は AGP 9 未対応のため現在**無効化中**（`.sq` と TODO は残置）。事例①の「守ってくれない」側は生SQLite（`data/local/stats/RawSqliteStatsHelper.kt` + `BlockingStatsRepository`）で代替している。
 
 ## StrictMode（デバッグビルドのみ・処方側の実演）
 
@@ -51,7 +53,7 @@ ANR を仕込む demoMode とは**独立**して、デバッグビルドでは�
 
 ## 技術スタック
 
-Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + SQLDelight + DataStore / WorkManager / Navigation3。Version Catalog 管理・単一モジュール。
+Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + DataStore（SQLDelight は AGP9 対応待ちで無効化中）/ WorkManager / Firebase Crashlytics。Version Catalog 管理・単一モジュール。
 
 ## ビルド・実行
 
@@ -64,18 +66,18 @@ Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + SQLDelight + DataSto
 
 ```
 com.pelantica.dorodorotimer
-├── app/            Application（Koin 起動）
+├── app/            Application（Koin 起動）/ startup/（ANR-02 の SDK風初期化と StartupGate）
 ├── di/             Koin モジュール（demoMode 差し替え／lazyModule 処方の場）
-├── core/debug/     DemoConfig（ANR再現モードのフラグ）
-├── core/ui/        Theme
-├── feature/timer/  タイマー画面（最小の動くポモドーロ）
-├── feature/stats/  統計画面（プレースホルダ）
-├── feature/settings/ 設定画面（demoMode トグル）
-├── data/local/     Room / SQLDelight / DataStore
+├── core/debug/     DemoConfig（ANR再現モードのフラグ）/ StrictMode バナー
+├── core/ui/        Theme / SectionCard
+├── feature/timer/  タイマー画面（ポモドーロ本体・時間ホイール）
+├── feature/stats/  統計画面（日別集計・デモ用シードの2セクション表示）
+├── feature/settings/ 設定画面（demoMode トグル・開発ツール）
+├── data/local/     Room / DataStore / 生SQLite（stats。SQLDelight は無効化中）
 ├── domain/model/   PomodoroPreset / TimerPhase
-└── service/        TimerForegroundService（器のみ）
+└── service/        AmbientSoundService（雨音FGS）/ TimerAlarmReceiver / work/（ANRログ送信Work）
 ```
 
 ## ステータス
 
-🚧 **骨格のみ**。動く最小ポモドーロ（25分集中＋5分休憩、start/pause/reset）と、各ANRパターンを後から差し込むための器・依存・demoMode 土台を用意した段階。ANR パターン本体は未実装。
+タイマー・統計・設定・テーマは製品品質で動作。ANR パターンは **01 / 02 / 05 / 06 が実装済み**（対応表参照。02 は正版=ワーカー実行込み）。03 はフックのみ、04 / 07 / FGS は未着手。
