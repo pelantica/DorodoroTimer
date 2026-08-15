@@ -32,7 +32,12 @@ class StatsViewModel(
      * 日別集計を読み直す。この ViewModel は Activity スコープで生き続けるため、
      * init での一度きりの読み込みだと、タイマーで完了したセッションが
      * タブを開き直しても反映されない（プロセス再起動まで見えない）。
-     * 画面側がタブに入るたびに呼ぶ。2回目以降は前回の表示を保ったまま静かに差し替える。
+     * 画面側がタブに入るたびに呼ぶ。2回目以降は前回の表示を保ったまま差し替えるが、
+     * 「静かに」は差し替えない: 読み込み中であることを [StatsUiState.isRefreshing] /
+     * [StatsUiState.isDemoLoading] で表に出す。黙って前回値を出したままだと、
+     * 特に数秒かかるデモ側で「もう読み終わった値」に見えてしまうため。
+     * 読み込み中フラグは launch の**外**で先に立てる（コルーチンの起動を待つと、
+     * 先に1フレーム描かれて古い表示のままちらつく）。
      *
      * demoMode ON のときは実データを先に流してからデモ側を読む。ただし**「先に流す」＝
      * 「先に描かれる」ではない**:
@@ -48,19 +53,33 @@ class StatsViewModel(
      * 1フレーム分メインを明け渡す処理を挟む必要がある。
      */
     fun reload() {
+        val demoMode = isDemoMode()
+        _uiState.value = _uiState.value.copy(
+            isRefreshing = !_uiState.value.isInitialLoading,
+            isDemoMode = demoMode,
+            isDemoLoading = demoMode,
+        )
         viewModelScope.launch {
             val real = realRepo.dailyStats()
-            if (!isDemoMode()) {
-                _uiState.value = StatsUiState(realStats = real, demoStats = null, isLoading = false)
+            if (!demoMode) {
+                _uiState.value = StatsUiState(
+                    realStats = real,
+                    demoStats = null,
+                    isInitialLoading = false,
+                    isRefreshing = false,
+                    isDemoMode = false,
+                    isDemoLoading = false,
+                )
                 return@launch
             }
-            _uiState.value = StatsUiState(
-                realStats = real,
-                demoStats = _uiState.value.demoStats,
-                isLoading = false,
-            )
+            // 実データだけ先に確定させる。デモ側はまだ読み込み中のまま（セクションはスピナー）。
+            _uiState.value = _uiState.value.copy(realStats = real, isInitialLoading = false)
             val demo = demoRepo.dailyStats()
-            _uiState.value = StatsUiState(realStats = real, demoStats = demo, isLoading = false)
+            _uiState.value = _uiState.value.copy(
+                demoStats = demo,
+                isRefreshing = false,
+                isDemoLoading = false,
+            )
         }
     }
 }

@@ -15,7 +15,9 @@
     <string name="nav_settings">設定</string>
 
     <!-- stats -->
-    <string name="stats_placeholder">セッション統計（実装予定）</string>
+    <string name="stats_loading">読み込み中…</string>
+    <!-- デモ用シードの投入を伴うので数秒かかることを伝える -->
+    <string name="stats_loading_demo">デモ用データを準備中…</string>
     <string name="stats_empty">🌱 まだ記録がありません</string>
     <!-- demoMode ON のときだけ表示するセクション見出し -->
     <string name="stats_section_real">実データ</string>

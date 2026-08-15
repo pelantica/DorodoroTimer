@@ -39,8 +39,64 @@ class StatsViewModelTest {
     ) = StatsViewModel(demoRepo, realRepo, { isDemoMode })
 
     @Test
-    fun beforeReload_startsWithLoadingTrue() = runTest(dispatcher) {
-        assertTrue(vm().uiState.value.isLoading)
+    fun beforeReload_startsWithInitialLoadingTrue() = runTest(dispatcher) {
+        assertTrue(vm().uiState.value.isInitialLoading)
+    }
+
+    @Test
+    fun reload_firstTime_isInitialLoading_notRefreshing() = runTest(dispatcher) {
+        // 初回は出せるものが何も無いので全画面スピナー側。進捗バーは出さない。
+        val viewModel = vm(isDemoMode = true)
+        viewModel.reload()
+
+        assertTrue(viewModel.uiState.value.isInitialLoading)
+        assertFalse(viewModel.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun reload_secondTime_isRefreshing_andKeepsPreviousData() = runTest(dispatcher) {
+        // 2回目以降は前回の内容を残したまま進捗バーを出す（初回スピナーには戻らない）
+        val realRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 2L, focusCount = 3, totalFocusSeconds = 4500))
+        )
+        val viewModel = vm(realRepo = realRepo, isDemoMode = false)
+        viewModel.reload()
+        testScheduler.runCurrent()
+        assertFalse(viewModel.uiState.value.isInitialLoading)
+
+        viewModel.reload()
+
+        assertTrue(viewModel.uiState.value.isRefreshing)
+        assertFalse(viewModel.uiState.value.isInitialLoading)
+        assertEquals(realRepo.stats, viewModel.uiState.value.realStats) // 前回値が残っている
+    }
+
+    @Test
+    fun reload_demoOn_demoSectionStaysLoadingUntilDemoRepoReturns() = runTest(dispatcher) {
+        // 実データが確定してもデモ側は読み込み中のまま＝セクションはスピナー。
+        // 古い集計を「読み終わった値」として見せないための状態。
+        val demoRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 1L, focusCount = 8, totalFocusSeconds = 12000))
+        )
+        val viewModel = vm(demoRepo = demoRepo, isDemoMode = true)
+
+        viewModel.reload()
+        assertTrue(viewModel.uiState.value.isDemoMode)
+        assertTrue(viewModel.uiState.value.isDemoLoading)
+
+        testScheduler.runCurrent()
+        assertFalse(viewModel.uiState.value.isDemoLoading)
+        assertEquals(demoRepo.stats, viewModel.uiState.value.demoStats)
+    }
+
+    @Test
+    fun reload_demoOff_doesNotMarkDemoSectionLoading() = runTest(dispatcher) {
+        val viewModel = vm(isDemoMode = false)
+
+        viewModel.reload()
+
+        assertFalse(viewModel.uiState.value.isDemoMode)
+        assertFalse(viewModel.uiState.value.isDemoLoading)
     }
 
     @Test
@@ -54,7 +110,8 @@ class StatsViewModelTest {
         val viewModel = vm(demoRepo = demoRepo, realRepo = realRepo, isDemoMode = false)
         viewModel.reload()
         testScheduler.runCurrent()
-        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse(viewModel.uiState.value.isInitialLoading)
+        assertFalse(viewModel.uiState.value.isRefreshing)
         assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
         assertNull(viewModel.uiState.value.demoStats)
         // demoMode OFF ではデモ側の読み口（ANR-01差し替え点）に触らない

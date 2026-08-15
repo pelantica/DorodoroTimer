@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +35,9 @@ import com.pelantica.dorodorotimer.domain.model.DailyStat
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDate
 
+/** 進捗バーの占有高さ。バーの出入りで下の内容がずれないよう、非表示でも確保する。 */
+private val ProgressBarHeight = 4.dp
+
 @Composable
 fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinViewModel()) {
     LaunchedEffect(Unit) {
@@ -51,27 +57,39 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
 
 @Composable
 fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
-    val demoStats = uiState.demoStats
-    when {
-        uiState.isLoading -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(text = stringResource(R.string.stats_placeholder))
+    // まだ何も出せない初回だけ全画面のスピナー。2回目以降は前回の内容を残したまま、
+    // 最上部の進捗バーとデモセクションのスピナーで「読み込み中」を示す。
+    if (uiState.isInitialLoading) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            LoadingIndicator(labelRes = R.string.stats_loading)
         }
-        // demoMode OFF（通常時）: 実データだけを従来どおり1枚で
-        demoStats == null && uiState.realStats.isEmpty() ->
-            Box(modifier = modifier, contentAlignment = Alignment.Center) {
-                Text(text = stringResource(R.string.stats_empty))
+        return
+    }
+    // demoMode OFF で実データも空: 従来どおりの空表示（読み直し中はバーを出したいので除く）
+    if (!uiState.isDemoMode && !uiState.isRefreshing && uiState.realStats.isEmpty()) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text(text = stringResource(R.string.stats_empty))
+        }
+        return
+    }
+    Column(modifier = modifier) {
+        // 高さを常に確保しておく。出入りのたびに下の内容が上下へずれないように。
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ProgressBarHeight),
+        ) {
+            if (uiState.isRefreshing) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-        demoStats == null -> LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-        ) {
-            statsCard(uiState.realStats)
         }
-        // demoMode ON: 実データを上に、デモ用シードの集計を下に（実データが埋もれないように）
-        else -> LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-        ) {
+        LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp)) {
+            if (!uiState.isDemoMode) {
+                // demoMode OFF（通常時）: 実データだけを従来どおり1枚で
+                statsCard(uiState.realStats)
+                return@LazyColumn
+            }
+            // demoMode ON: 実データを上に、デモ用シードの集計を下に（実データが埋もれないように）
             sectionHeader(R.string.stats_section_real)
             if (uiState.realStats.isEmpty()) {
                 item {
@@ -86,8 +104,39 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
                 statsCard(uiState.realStats)
             }
             sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
-            statsCard(demoStats)
+            // シード投入を伴って数秒かかる。前回の集計を出したままにせず中身を差し替える
+            // （出したままだと「読み終わった値」に見えてしまうため）。
+            if (uiState.isDemoLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(SectionCardCorner))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        LoadingIndicator(labelRes = R.string.stats_loading_demo)
+                    }
+                }
+            } else {
+                statsCard(uiState.demoStats.orEmpty())
+            }
         }
+    }
+}
+
+/** スピナーと説明文の縦並び。全画面とデモセクションの両方で使う。 */
+@Composable
+private fun LoadingIndicator(@StringRes labelRes: Int, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        CircularProgressIndicator()
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp),
+        )
     }
 }
 
