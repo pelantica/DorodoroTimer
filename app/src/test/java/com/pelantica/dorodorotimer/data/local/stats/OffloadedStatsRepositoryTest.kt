@@ -14,7 +14,7 @@ private class FakeFocusSessionDao : FocusSessionDao {
     private val sessions = mutableListOf<FocusSessionEntity>()
     var insertCallCount = 0
         private set
-    var deleteAllCallCount = 0
+    var deleteDemoCallCount = 0
         private set
 
     override suspend fun insert(entity: FocusSessionEntity) {
@@ -24,9 +24,9 @@ private class FakeFocusSessionDao : FocusSessionDao {
 
     override suspend fun getAll(): List<FocusSessionEntity> = sessions.toList()
 
-    override suspend fun deleteAll() {
-        deleteAllCallCount++
-        sessions.clear()
+    override suspend fun deleteDemo() {
+        deleteDemoCallCount++
+        sessions.removeAll { it.isDemo }
     }
 
     fun add(entity: FocusSessionEntity) { sessions.add(entity) }
@@ -99,26 +99,26 @@ class OffloadedStatsRepositoryTest {
     fun dailyStats_seedDemoDataFalse_neverSeeds_releaseSafety() = runTest {
         // seedDemoData のデフォルトは false（release既定）。既存データが空でも架空データを作らない。
         val dao = FakeFocusSessionDao()
-        val repo = OffloadedStatsRepository(dao, seedDemoData = false, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { false }, seedRowCount = 10)
 
         val result = repo.dailyStats()
 
         assertEquals(0, dao.insertCallCount)
-        assertEquals(0, dao.deleteAllCallCount)
+        assertEquals(0, dao.deleteDemoCallCount)
         assertEquals(emptyList<Any>(), result)
     }
 
     @Test
     fun dailyStats_seedDemoDataTrue_reseedsThenAggregatesFocusOnly() = runTest {
         val dao = FakeFocusSessionDao()
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         val result = repo.dailyStats()
 
         // rowCount=10 のうち 5件に1件(i%5==4)が BREAK＝2件なので、FOCUS 8件だけが集計される
         // （BlockingStatsRepositoryTest.dailyStats_reseedsThenAggregatesFocusOnly と同じ期待値＝
         //  両実装が同じ DemoStatsSeed を使っている証拠）。
-        assertEquals(1, dao.deleteAllCallCount)
+        assertEquals(1, dao.deleteDemoCallCount)
         assertEquals(10, dao.insertCallCount) // 1件ずつ非トランザクションで書き込む（一括insertAllは使わない）
         assertEquals(8, result.sumOf { it.focusCount })
         assertEquals(8 * 1500, result.sumOf { it.totalFocusSeconds })
@@ -129,7 +129,7 @@ class OffloadedStatsRepositoryTest {
         val dao = FakeFocusSessionDao().apply {
             add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L))
         }
-        val repo = OffloadedStatsRepository(dao, seedDemoData = true, seedRowCount = 10)
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
 
         val first = repo.dailyStats().sumOf { it.focusCount }
         val second = repo.dailyStats().sumOf { it.focusCount }
@@ -137,6 +137,77 @@ class OffloadedStatsRepositoryTest {
         // 毎回リセットしてから入れ直すので、残骸が混ざらず何度呼んでも同じ結果＝登壇デモが再現する
         assertEquals(8, first)
         assertEquals(8, second)
-        assertEquals(2, dao.deleteAllCallCount)
+        assertEquals(2, dao.deleteDemoCallCount)
+    }
+
+    // --- isDemo（実データとシードの共存）---------------------------------------------
+
+    @Test
+    fun reseed_preservesRealRows() = runTest {
+        // demoMode を何度往復しても、タイマーで完了した実データ（isDemo=false）は消えない
+        val dao = FakeFocusSessionDao().apply {
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 300, completedAtEpochMs = 86_400_000L))
+        }
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
+
+        repo.dailyStats()
+        repo.dailyStats()
+
+        assertEquals(1, dao.getAll().count { !it.isDemo })
+        assertEquals(10, dao.getAll().count { it.isDemo })
+    }
+
+    @Test
+    fun dailyStats_seeded_excludesRealRowsFromDemoAggregate() = runTest {
+        // demoMode 中のこの読み口は「デモ用シードの集計」担当。実データは混ぜない
+        // （実データは画面が別の読み口から取得して上のセクションに出す）。
+        val dao = FakeFocusSessionDao().apply {
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 999, completedAtEpochMs = 86_400_000L))
+        }
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { true }, seedRowCount = 10)
+
+        val result = repo.dailyStats()
+
+        assertEquals(8, result.sumOf { it.focusCount })          // シード由来の FOCUS 8件のみ
+        assertEquals(8 * 1500, result.sumOf { it.totalFocusSeconds }) // 999 が混ざっていない
+    }
+
+    @Test
+    fun dailyStats_notSeeding_excludesLeftoverDemoRows() = runTest {
+        // demoMode OFF に戻した後、消し残ったシード行が本物の統計に混ざらない
+        val dao = FakeFocusSessionDao().apply {
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L))
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 1500, completedAtEpochMs = 86_400_000L, isDemo = true))
+        }
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { false })
+
+        val result = repo.dailyStats()
+
+        assertEquals(1, result.sumOf { it.focusCount })
+    }
+
+    @Test
+    fun dailyStats_reevaluatesSeedFlagOnEveryCall() = runTest {
+        // このクラスは Koin の single としてキャッシュされるため、seedDemoData を生成時の値で
+        // 固定すると、master トグルを再起動なしで OFF→ON したときシードが投入されず、
+        // 「デモ用シードデータ」欄に実データ（isDemo=false）が出てしまう。毎回読み直すこと。
+        val dao = FakeFocusSessionDao().apply {
+            add(FocusSessionEntity(phase = TimerPhase.FOCUS.name, durationSeconds = 999, completedAtEpochMs = 86_400_000L))
+        }
+        var demoMode = false
+        val repo = OffloadedStatsRepository(dao, seedDemoData = { demoMode }, seedRowCount = 10)
+
+        // master OFF のあいだ: シードは投入されず、実データだけが返る
+        val whileOff = repo.dailyStats()
+        assertEquals(0, dao.insertCallCount)
+        assertEquals(1, whileOff.sumOf { it.focusCount })
+
+        // 同じインスタンスのまま master を ON にする（＝プロセス再起動なし）
+        demoMode = true
+        val whileOn = repo.dailyStats()
+
+        assertEquals(10, dao.insertCallCount)                          // シードが投入された
+        assertEquals(8, whileOn.sumOf { it.focusCount })               // 返るのはシード由来のみ
+        assertEquals(8 * 1500, whileOn.sumOf { it.totalFocusSeconds }) // 実データの 999 は混ざらない
     }
 }

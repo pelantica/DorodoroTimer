@@ -16,7 +16,7 @@ private class ParityFakeFocusSessionDao : FocusSessionDao {
     private val sessions = mutableListOf<FocusSessionEntity>()
     override suspend fun insert(entity: FocusSessionEntity) { sessions.add(entity) }
     override suspend fun getAll(): List<FocusSessionEntity> = sessions.toList()
-    override suspend fun deleteAll() { sessions.clear() }
+    override suspend fun deleteDemo() { sessions.removeAll { it.isDemo } }
 }
 
 /**
@@ -56,7 +56,7 @@ class StatsSeedParityTest {
                 )
             )
         }
-        val offloadedResult = OffloadedStatsRepository(dao, seedDemoData = false).dailyStats()
+        val offloadedResult = OffloadedStatsRepository(dao, seedDemoData = { false }).dailyStats()
 
         assertTrue(blockingResult.isNotEmpty())
         assertEquals(blockingResult, offloadedResult)

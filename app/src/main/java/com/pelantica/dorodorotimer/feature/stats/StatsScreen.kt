@@ -1,5 +1,6 @@
 package com.pelantica.dorodorotimer.feature.stats
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pelantica.dorodorotimer.R
 import com.pelantica.dorodorotimer.core.debug.Anr
@@ -48,46 +51,87 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
 
 @Composable
 fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
+    val demoStats = uiState.demoStats
     when {
         uiState.isLoading -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.stats_placeholder))
         }
-        uiState.stats.isEmpty() -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(text = stringResource(R.string.stats_empty))
+        // demoMode OFF（通常時）: 実データだけを従来どおり1枚で
+        demoStats == null && uiState.realStats.isEmpty() ->
+            Box(modifier = modifier, contentAlignment = Alignment.Center) {
+                Text(text = stringResource(R.string.stats_empty))
+            }
+        demoStats == null -> LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+        ) {
+            statsCard(uiState.realStats)
         }
-        // 設定画面の ANR トグルと同じ「白いカードに行が並ぶ」見た目にする。
-        // 件数が読めないので Card は張れない（LazyColumn が要る）。代わりに項目ごとに
-        // 角丸を出し分けて1枚のカードに見せている（先頭は上だけ・末尾は下だけ丸める）。
+        // demoMode ON: 実データを上に、デモ用シードの集計を下に（実データが埋もれないように）
         else -> LazyColumn(
             modifier = modifier,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
         ) {
-            itemsIndexed(uiState.stats) { index, stat ->
-                val isFirst = index == 0
-                val isLast = index == uiState.stats.lastIndex
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(
-                            RoundedCornerShape(
-                                topStart = if (isFirst) SectionCardCorner else 0.dp,
-                                topEnd = if (isFirst) SectionCardCorner else 0.dp,
-                                bottomStart = if (isLast) SectionCardCorner else 0.dp,
-                                bottomEnd = if (isLast) SectionCardCorner else 0.dp,
-                            )
-                        )
-                        .background(MaterialTheme.colorScheme.surfaceContainerLowest),
-                ) {
-                    // 区切り線は行の「間」だけ。先頭行の上には引かない。
-                    if (!isFirst) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                    StatsDailyRow(stat = stat)
+            sectionHeader(R.string.stats_section_real)
+            if (uiState.realStats.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.stats_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                    )
                 }
+            } else {
+                statsCard(uiState.realStats)
             }
+            sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
+            statsCard(demoStats)
+        }
+    }
+}
+
+private fun LazyListScope.sectionHeader(@StringRes labelRes: Int, topPadding: Dp = 0.dp) {
+    item {
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = topPadding, bottom = 8.dp),
+        )
+    }
+}
+
+/**
+ * 日別集計のリストを「白いカードに行が並ぶ」見た目で描く（設定画面のANRトグルと同じ意匠）。
+ * 件数が読めないので Card は張れない（LazyColumn が要る）。代わりに項目ごとに
+ * 角丸を出し分けて1枚のカードに見せている（先頭は上だけ・末尾は下だけ丸める）。
+ */
+private fun LazyListScope.statsCard(stats: List<DailyStat>) {
+    itemsIndexed(stats) { index, stat ->
+        val isFirst = index == 0
+        val isLast = index == stats.lastIndex
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(
+                    RoundedCornerShape(
+                        topStart = if (isFirst) SectionCardCorner else 0.dp,
+                        topEnd = if (isFirst) SectionCardCorner else 0.dp,
+                        bottomStart = if (isLast) SectionCardCorner else 0.dp,
+                        bottomEnd = if (isLast) SectionCardCorner else 0.dp,
+                    )
+                )
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        ) {
+            // 区切り線は行の「間」だけ。先頭行の上には引かない。
+            if (!isFirst) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+            StatsDailyRow(stat = stat)
         }
     }
 }

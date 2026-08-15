@@ -17,6 +17,9 @@
     <!-- stats -->
     <string name="stats_placeholder">セッション統計（実装予定）</string>
     <string name="stats_empty">🌱 まだ記録がありません</string>
+    <!-- demoMode ON のときだけ表示するセクション見出し -->
+    <string name="stats_section_real">実データ</string>
+    <string name="stats_section_demo">デモ用シードデータ（ANR-01）</string>
     <!-- stats row: %1$d=年, %2$d=月, %3$d=日 -->
     <string name="stats_row_date">%1$d/%2$d/%3$d</string>
     <!-- stats row: %1$d=集中回数 -->
