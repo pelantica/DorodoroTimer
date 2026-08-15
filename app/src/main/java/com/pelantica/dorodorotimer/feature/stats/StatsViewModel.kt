@@ -25,7 +25,9 @@ class StatsViewModel(
     private val isDemoMode: () -> Boolean,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(StatsUiState())
+    // 初期値の時点で demoMode を反映しておく。[reload] を待つと、最初の1フレームだけ
+    // デモ用セクションが無い状態が描かれて、直後に生えてくる。
+    private val _uiState = MutableStateFlow(StatsUiState(isDemoMode = isDemoMode()))
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
 
     /**
@@ -35,8 +37,8 @@ class StatsViewModel(
      * 画面側がタブに入るたびに呼ぶ。2回目以降は前回の表示を保ったまま差し替えるが、
      * デモ側だけは「静かに」差し替えない: 数秒かかるので、黙って前回値を出したままだと
      * 「もう読み終わった値」に見えてしまう。[StatsUiState.isDemoLoading] を立てて
-     * セクションの中身をスピナーに差し替える。実データ側は数ミリ秒で返るため、
-     * 読み込み表示は出さない（知らせる中身が無いのにちらつくだけになる）。
+     * セクションの中身をスピナーに差し替える。実データ側は数ミリ秒で返るので、
+     * 2回目以降は立て直さない（カードがスピナーに置き換わって一瞬で戻るだけになる）。
      * このフラグは launch の**外**で先に立てる（コルーチンの起動を待つと、
      * 先に1フレーム描かれて古い集計が一瞬見えてしまう）。
      *
@@ -62,14 +64,14 @@ class StatsViewModel(
                 _uiState.value = StatsUiState(
                     realStats = real,
                     demoStats = null,
-                    isInitialLoading = false,
+                    isRealLoading = false,
                     isDemoMode = false,
                     isDemoLoading = false,
                 )
                 return@launch
             }
             // 実データだけ先に確定させる。デモ側はまだ読み込み中のまま（セクションはスピナー）。
-            _uiState.value = _uiState.value.copy(realStats = real, isInitialLoading = false)
+            _uiState.value = _uiState.value.copy(realStats = real, isRealLoading = false)
             val demo = demoRepo.dailyStats()
             _uiState.value = _uiState.value.copy(demoStats = demo, isDemoLoading = false)
         }

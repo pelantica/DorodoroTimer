@@ -52,18 +52,10 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
 
 @Composable
 fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
-    // まだ何も出せない初回だけ全画面のスピナー。2回目以降は前回の内容を残したまま、
-    // 数秒かかるデモセクションの中身だけスピナーに差し替える。
-    // 実データ側に読み込み表示を出さないのは、Room の数件＋Kotlin 側の集計だけで
-    // 数ミリ秒で返るため（知らせる中身がないのにちらつくだけになる）。
-    if (uiState.isInitialLoading) {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            LoadingIndicator(labelRes = R.string.stats_loading)
-        }
-        return
-    }
-    // demoMode OFF で実データも空: 従来どおりの空表示
-    if (!uiState.isDemoMode && uiState.realStats.isEmpty()) {
+    // 読み込み表示はセクション単位。画面全体を覆うスピナーは出さない
+    // （片方が読めていればその内容は出せるので、全部を隠す理由がない）。
+    // demoMode OFF で読み終わっていて実データも空: 従来どおり中央に空表示
+    if (!uiState.isDemoMode && !uiState.isRealLoading && uiState.realStats.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.stats_empty))
         }
@@ -74,14 +66,16 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
     ) {
         if (!uiState.isDemoMode) {
-            // demoMode OFF（通常時）: 実データだけを従来どおり1枚で
-            statsCard(uiState.realStats)
+            // demoMode OFF（通常時）: 実データだけを従来どおり1枚で（見出しなし）
+            if (uiState.isRealLoading) loadingCard(R.string.stats_loading)
+            else statsCard(uiState.realStats)
             return@LazyColumn
         }
         // demoMode ON: 実データを上に、デモ用シードの集計を下に（実データが埋もれないように）
         sectionHeader(R.string.stats_section_real)
-        if (uiState.realStats.isEmpty()) {
-            item {
+        when {
+            uiState.isRealLoading -> loadingCard(R.string.stats_loading)
+            uiState.realStats.isEmpty() -> item {
                 Text(
                     text = stringResource(R.string.stats_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -89,32 +83,33 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
                     modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
                 )
             }
-        } else {
-            statsCard(uiState.realStats)
+            else -> statsCard(uiState.realStats)
         }
         sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
         // シード投入を伴って数秒かかる。前回の集計を出したままにせず中身を差し替える
         // （出したままだと「読み終わった値」に見えてしまうため）。
-        if (uiState.isDemoLoading) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(SectionCardCorner))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    LoadingIndicator(labelRes = R.string.stats_loading_demo)
-                }
-            }
-        } else {
-            statsCard(uiState.demoStats.orEmpty())
+        if (uiState.isDemoLoading) loadingCard(R.string.stats_loading_demo)
+        else statsCard(uiState.demoStats.orEmpty())
+    }
+}
+
+/** 読み込み中のセクション。[statsCard] と同じ白いカードの中にスピナーを置く。 */
+private fun LazyListScope.loadingCard(@StringRes labelRes: Int) {
+    item {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(SectionCardCorner))
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .padding(vertical = 32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            LoadingIndicator(labelRes = labelRes)
         }
     }
 }
 
-/** スピナーと説明文の縦並び。全画面とデモセクションの両方で使う。 */
+/** スピナーと説明文の縦並び。 */
 @Composable
 private fun LoadingIndicator(@StringRes labelRes: Int, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
