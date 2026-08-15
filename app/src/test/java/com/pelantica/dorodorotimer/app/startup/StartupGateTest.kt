@@ -1,7 +1,12 @@
 package com.pelantica.dorodorotimer.app.startup
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,6 +61,30 @@ class StartupGateTest {
             .map { it.tag }
             .filter { it in expectedTagsInOrder }
         assertEquals(expectedTagsInOrder, actual)
+    }
+
+    @Test
+    fun runOnWorkerThread_logsFailureInsteadOfCrashingTheProcess() {
+        // 予約した初期化が落ちてもプロセスを道連れにしない（ルートコルーチンなので
+        // CoroutineExceptionHandler が無いと uncaughtExceptionHandler まで抜けて即死する）。
+        // 失敗を握りつぶさず警告として残すことも併せて確認する。
+        ShadowLog.clear()
+        val boom = IllegalStateException("boom")
+        // 実行順で最初の AnalyticsInitializer が context.packageName を読むので、そこで落とす。
+        // getApplicationContext も自分に向けないと、runOnWorkerThread の付け替えで
+        // 素の Context に戻ってしまい落ちない。
+        val throwingContext = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getPackageName(): String = throw boom
+        }
+
+        // Unconfined なら launch の本体が同期実行されるので、ハンドラに渡るところまで見える。
+        // ハンドラが無ければこの行で例外が素通りしてテストが落ちる＝退行を検出できる。
+        StartupGate.runOnWorkerThread(throwingContext, Dispatchers.Unconfined)
+
+        val warning = ShadowLog.getLogs().firstOrNull { it.tag == "StartupGate" && it.type == Log.WARN }
+        assertNotNull("失敗は StartupGate の警告ログに残るはず", warning)
+        assertSame(boom, warning!!.throwable)
     }
 
     @Test

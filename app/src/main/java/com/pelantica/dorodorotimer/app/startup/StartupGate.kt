@@ -3,6 +3,7 @@ package com.pelantica.dorodorotimer.app.startup
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,10 +73,30 @@ internal object StartupGate {
     ) {
         // Activity 等を掴んでリークしないよう applicationContext に付け替える
         val appContext = context.applicationContext
-        CoroutineScope(SupervisorJob() + dispatcher).launch {
+        CoroutineScope(SupervisorJob() + dispatcher + failureLogger).launch {
             val totalMs = measureTimeMillis { runAll(appContext) }
             Log.d(TAG, "all initializers done in ${totalMs}ms (off-main)")
         }
+    }
+
+    /**
+     * 予約した初期化が落ちたときの受け皿。
+     *
+     * これが無いと `launch` はルートコルーチンなのでプロセスが即死する。
+     * `SupervisorJob` は兄弟へのキャンセル伝播を止めるだけで、例外は握らない。
+     * [runAll] は実I/O（`fd.sync()` を約2,400回、`commit()` を約1,200回）を含むため、
+     * ストレージが逼迫した端末では `IOException` が現実的に起こりうる。
+     *
+     * しかも落ち方が経路で非対称になる: [runOnMainThread] は `onCreate` のスタックで
+     * その場で落ちるのに対し、こちらは起動から数秒後にワーカースレッドから落ちるため
+     * 何が引き金か追いにくい。**正しい実装の側だけデバッグしづらい**のは避けたい。
+     *
+     * 教材としても「onCreate は予約だけ」の処方には
+     * 「投げっぱなしにするなら失敗の受け皿は要る」が付いてくる、という一段がある。
+     * 初期化に失敗しても製品としては起動を止めない（6つとも結果を誰も使わないため）。
+     */
+    private val failureLogger = CoroutineExceptionHandler { _, e ->
+        Log.w(TAG, "startup initializers failed off-main (startup itself is unaffected)", e)
     }
 
     /**
