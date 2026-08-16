@@ -138,6 +138,71 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun setMaster_false_clearsAllPerAnrToggles() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        Anr.entries.forEach { vm.setAnr(it, true) }
+        Anr.entries.forEach { assertTrue(it.name, fake.isOn(it)) }
+
+        vm.setMaster(false)
+
+        assertFalse(vm.state.value.master)
+        Anr.entries.forEach { anr ->
+            assertFalse(anr.name, fake.isOn(anr))
+            assertFalse(anr.name, vm.state.value.perAnr[anr] ?: false)
+        }
+    }
+
+    @Test
+    fun setMaster_false_clearsBothRestartAndNonRestartAnrs() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        // requiresRestart が true の事例と false の事例を混在させる
+        vm.setAnr(Anr.ANR_02, true)
+        vm.setAnr(Anr.ANR_06, true)
+        assertEquals(true, Anr.ANR_02.requiresRestart)
+        assertEquals(false, Anr.ANR_06.requiresRestart)
+
+        vm.setMaster(false)
+
+        assertFalse(fake.isOn(Anr.ANR_02))
+        assertFalse(fake.isOn(Anr.ANR_06))
+        assertFalse(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertFalse(vm.state.value.perAnr[Anr.ANR_06] ?: false)
+    }
+
+    @Test
+    fun setMaster_false_doesNotSetRestartPromptFor() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = true)
+        val vm = SettingsViewModel(fake)
+        vm.setAnr(Anr.ANR_02, true)
+        vm.confirmRestartPrompt()
+        assertEquals(null, vm.state.value.restartPromptFor)
+
+        // requiresRestart な事例を巻き込んでクリアしても、再起動ダイアログは出さない
+        vm.setMaster(false)
+
+        assertEquals(null, vm.state.value.restartPromptFor)
+    }
+
+    @Test
+    fun setMaster_true_keepsPerAnrToggles() = runTest(dispatcher) {
+        val fake = FakeDemoFlags(master = false).also {
+            it.setOn(Anr.ANR_02, true)
+            it.setOn(Anr.ANR_06, true)
+        }
+        val vm = SettingsViewModel(fake)
+
+        vm.setMaster(true)
+
+        assertTrue(vm.state.value.master)
+        assertTrue(fake.isOn(Anr.ANR_02))
+        assertTrue(fake.isOn(Anr.ANR_06))
+        assertTrue(vm.state.value.perAnr[Anr.ANR_02] ?: false)
+        assertTrue(vm.state.value.perAnr[Anr.ANR_06] ?: false)
+    }
+
+    @Test
     fun setAnr_nonRequiresRestartAnr_dismissRestartPrompt_doesNotAffectFlag() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
         val vm = SettingsViewModel(fake)
