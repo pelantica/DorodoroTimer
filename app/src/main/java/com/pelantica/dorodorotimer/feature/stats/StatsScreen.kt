@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,18 +30,27 @@ import com.pelantica.dorodorotimer.R
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.ui.SectionCardCorner
+import com.pelantica.dorodorotimer.data.local.stats.StatsStore
 import com.pelantica.dorodorotimer.domain.model.DailyStat
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDate
 
 @Composable
 fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinViewModel()) {
-    LaunchedEffect(Unit) {
-        // [ANR-03] 通知ディープリンク流入（冷えた起動）でこの画面が前面化する。
-        //  demoMode ON のとき、ここで重い同期集計やロック競合を走らせると起動ANRを再現できる。
-        //  今回は土台のみ＝フックだけ。本体は未実装。
-        if (DemoConfig.isOn(Anr.ANR_03)) {
-            // TODO(ANR-03): 重い同期処理（DB全件集計 / ロック競合 / Thread.sleep 等）をここで。
+    // [ANR-03] 通知ディープリンク流入（冷えた起動）でこの画面が前面化する。
+    //  起動と同時に走り出した StatsStore.warmUp がまだロックを握っている最中に、
+    //  メイン（LaunchedEffect の本体は Main dispatcher で走る）が同じ monitor を取りに行く。
+    if (DemoConfig.isOn(Anr.ANR_03)) {
+        LaunchedEffect(Unit) {
+            // [ANR-03] 初回フレームを2回待ってから取りに行く: 凍る瞬間を「画面が描かれ
+            //  ウィンドウがフォーカスを得た後」に置き、ANR の帰属を自アプリにするため
+            //  （最初のウィンドウより前に凍ると入力締切がランチャー帰属になり
+            //  Crashlytics/Vitals に写らない）。
+            withFrameNanos { }
+            withFrameNanos { }
+            // [ANR-03] 「もう初期化済みのはずだから一瞬」という思い込みの同期アクセス。
+            //  初期化中なら monitor 待ちでメインが凍る。処方は StatsStore の KDoc 参照。
+            StatsStore.awaitReady()
         }
     }
     // タブに入るたびに読み直す（LaunchedEffect(Unit) はこの画面が composition に

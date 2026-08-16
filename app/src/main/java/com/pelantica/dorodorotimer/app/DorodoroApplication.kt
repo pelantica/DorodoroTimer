@@ -7,8 +7,10 @@ import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
 import com.pelantica.dorodorotimer.core.debug.StrictModeBannerSettings
 import com.pelantica.dorodorotimer.core.debug.StrictModeInstaller
+import com.pelantica.dorodorotimer.data.local.stats.StatsStore
 import com.pelantica.dorodorotimer.di.appModule
 import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
+import kotlin.concurrent.thread
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -44,6 +46,14 @@ class DorodoroApplication : Application() {
             //   初期化すべき本物のSDKに置き換える（そのまま残すと毎起動9秒ぶんのCPUと
             //   数千回のfsyncを焼く）。本物のSDKを抱えるアプリでは、この else 側が本来の実装。
             StartupGate.runOnWorkerThread(this)
+        }
+        if (DemoConfig.isOn(Anr.ANR_03)) {
+            // [ANR-03] 統計ストアの遅延初期化を、起動と同時にワーカースレッドで先回りさせる。
+            //  「重い初期化はメイン外へ」という判断自体は ANR-02 の処方どおりで正しい。
+            //  だが StatsStore.warmUp は初期化の全時間ロックを握るため、起動直後に
+            //  ディープリンクで統計画面まで来たメインが monitor 待ちで凍る（waiting系）。
+            //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
+            thread(name = "stats-store-warmup") { StatsStore.warmUp() }
         }
         startKoin {
             androidContext(this@DorodoroApplication)
