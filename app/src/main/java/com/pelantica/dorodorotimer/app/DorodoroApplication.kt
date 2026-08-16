@@ -2,6 +2,8 @@ package com.pelantica.dorodorotimer.app
 
 import android.app.Application
 import com.pelantica.dorodorotimer.app.startup.StartupGate
+import com.pelantica.dorodorotimer.app.startup.StartupOrigin
+import com.pelantica.dorodorotimer.app.startup.UnsentReportIndexInitializer
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
@@ -55,15 +57,32 @@ class DorodoroApplication : Application() {
             //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
             thread(name = "stats-store-warmup") { StatsStore.warmUp() }
         }
+        // [ANR-05] 「誰に起こされたか」は下の2か所で使うので一度だけ問い合わせる
+        //  （Binder 往復を二重にしない。トグル OFF なら問い合わせ自体を行わない）。
+        val isAnr05On = DemoConfig.isOn(Anr.ANR_05)
+        val isBackgroundStart = isAnr05On && StartupOrigin.isBackgroundStart(this)
+        if (isAnr05On
+            && isBackgroundStart
+            && !StartupOrigin.lastExitWasAnr(this)
+        ) {
+            // [ANR-05] 背面で起こされたついでに溜まった仕事（未送信レポートのインデックス
+            //  再構築・約+10秒）を片付ける。背面起動に入力の番犬は居らず、onCreate を見張るのは
+            //  bindApplication の15秒締切だけ。ANR-02 の6つでは届かず、この1行が乗って初めて
+            //  越える＝「単独犯ではなく総量」の再演。破るとダイアログなしの無言 kill。
+            //  第3項は安全弁（直前が ANR 死なら重くしない＝無限ループと文鎮化の防止）。
+            //  処方は ANR-02 と同じ「onCreate は予約だけ」＝ StartupGate.runOnWorkerThread。
+            UnsentReportIndexInitializer.init()
+        }
         startKoin {
             androidContext(this@DorodoroApplication)
             modules(appModule)
         }
-        if (DemoConfig.isOn(Anr.ANR_05)) {
-            // [ANR-05] demoMode 時、ANRログ送信を模して Work を enqueue する。
-            //  冷えたプロセスに WorkManager がジョブを投げると新プロセスが立ち上がり、
-            //  ANR-02 の重い onCreate が起動枠内で走ることで起動 ANR になる（連結シナリオ）。
-            //  ANR-02 トグルも ON にして、アプリを BG に落とした後に発火させること。
+        if (isAnr05On && !isBackgroundStart) {
+            // [ANR-05] ANRログ送信を模した Work の enqueue＝**種蒔き**。ここ自体は無実
+            //  （doWork も軽量なまま）で、事故は起こされた先の onCreate（上の分岐）で起きる。
+            //  **前面起動のときだけ**張り直すのが肝: 背面起動から同じ一意名を触ると、
+            //  自分を起こしてくれた Work を壊す（理由は AnrLogUploadScheduler の KDoc）。
+            //  再現は ANR-02 も ON にして `scripts/demo-anr05.sh`（force-stop は不可）。
             AnrLogUploadScheduler.enqueue(this)
         }
         // onCreate の末尾に置く: 同じ prefs を DemoConfig.isOn が既にロード済みなので

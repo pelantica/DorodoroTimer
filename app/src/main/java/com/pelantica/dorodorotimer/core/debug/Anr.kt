@@ -26,7 +26,18 @@ enum class Anr(val requiresRestart: Boolean) {
      */
     ANR_03(requiresRestart = true),
 
-    /** Application.onCreate 内で読み、ANRログ送信 Work を enqueue するか判定する。 */
+    /**
+     * 背面起動ブースト（Application.onCreate 内で読む）。ON のとき onCreate は2つのことをする:
+     *  1. ANRログ送信 Work を enqueue する＝**種蒔き**（死んだプロセスを後で起こす仕掛け）。
+     *  2. その Work / アラームに**背面で起こされた起動**だったときだけ、
+     *     「未送信レポートのインデックス再構築」で約10秒メインを占有する。
+     *
+     * 前面起動には入力ディスパッチ5秒しか番犬がいないが、背面起動を見張るのは
+     * bindApplication の15秒。ANR-02 の6.6〜8.0秒に上乗せしてこれを破ると、
+     * ダイアログなしの無言 kill になる（`failed to complete startup`）。
+     *
+     * onCreate は起動時に一度しか走らないので再起動が必要。
+     */
     ANR_05(requiresRestart = true),
 
     /** BroadcastReceiver#onReceive 内で毎回読む。再起動不要。 */
