@@ -65,19 +65,11 @@ class DorodoroApplication : Application() {
             && isBackgroundStart
             && !StartupOrigin.lastExitWasAnr(this)
         ) {
-            // [ANR-05] 背面で起こされたついでに溜まった仕事を片付ける:
-            //  未送信レポートのインデックス再構築（約+10秒の実作業）。
-            //
-            //  **背面起動には入力が無い＝入力ディスパッチ5秒の番犬は鳴かない。**
-            //  onCreate を見張っているのは AMS の bindApplication 締切（15秒 ×
-            //  ro.hw_timeout_multiplier）だけで、これを破ると ANR ダイアログすら出ずに
-            //  無言で kill される（Reason: Process ... failed to complete startup）。
-            //  ANR-02 の6つ（6.6〜8.0秒）だけでは15秒に届かない。この1行が乗って初めて越える。
-            //  ＝「単独犯ではなく総量」という ANR-02 の教訓が、締切の種類を変えて再演される。
-            //
-            //  第3項は安全弁: 直前が ANR 死なら今回は重くしない。背面 ANR 死 →
-            //  ジョブ再スケジュール → また起こされてまた死ぬ、の無限ループを断ち、
-            //  デモ機が二度と開けなくなる事態（文鎮化）も構造的に防ぐ。鳴るのは1回武装につき1発。
+            // [ANR-05] 背面で起こされたついでに溜まった仕事（未送信レポートのインデックス
+            //  再構築・約+10秒）を片付ける。背面起動に入力の番犬は居らず、onCreate を見張るのは
+            //  bindApplication の15秒締切だけ。ANR-02 の6つでは届かず、この1行が乗って初めて
+            //  越える＝「単独犯ではなく総量」の再演。破るとダイアログなしの無言 kill。
+            //  第3項は安全弁（直前が ANR 死なら重くしない＝無限ループと文鎮化の防止）。
             //  処方は ANR-02 と同じ「onCreate は予約だけ」＝ StartupGate.runOnWorkerThread。
             UnsentReportIndexInitializer.init()
         }
@@ -86,18 +78,11 @@ class DorodoroApplication : Application() {
             modules(appModule)
         }
         if (isAnr05On && !isBackgroundStart) {
-            // [ANR-05] ANRログ送信を模して Work を enqueue する＝**種蒔き**。
-            //  ここ自体は無実（doWork も軽量なまま）。役割は「アプリが死んだ後にプロセスを
-            //  起こす仕掛け」を仕込むことだけで、事故は起こされた先の onCreate（上の分岐）で起きる。
-            //
-            //  **前面起動のときだけ**張り直すのが肝。背面起動＝いま自分を起こしてくれた Work が
-            //  実行されようとしている最中なので、そこで同じ一意名を触ると自分の目覚ましを
-            //  壊してしまう（REPLACE ならキャンセル、KEEP なら no-op、APPEND なら次が遠のく。
-            //  3通り全部踏んだ記録が AnrLogUploadScheduler の KDoc にある）。
-            //  触らなければ REPLACE で単純に「常にちょうど1つ・20秒後」に保てる。
-            //
-            //  ANR-02 トグルも ON にして、アプリを BG に落とし `am kill` してから発火させること
-            //  （`am force-stop` はジョブごと消えるので不可）。`scripts/demo-anr05.sh` が自動化済み。
+            // [ANR-05] ANRログ送信を模した Work の enqueue＝**種蒔き**。ここ自体は無実
+            //  （doWork も軽量なまま）で、事故は起こされた先の onCreate（上の分岐）で起きる。
+            //  **前面起動のときだけ**張り直すのが肝: 背面起動から同じ一意名を触ると、
+            //  自分を起こしてくれた Work を壊す（理由は AnrLogUploadScheduler の KDoc）。
+            //  再現は ANR-02 も ON にして `scripts/demo-anr05.sh`（force-stop は不可）。
             AnrLogUploadScheduler.enqueue(this)
         }
         // onCreate の末尾に置く: 同じ prefs を DemoConfig.isOn が既にロード済みなので

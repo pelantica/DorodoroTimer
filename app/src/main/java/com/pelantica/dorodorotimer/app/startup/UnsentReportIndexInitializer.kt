@@ -4,101 +4,29 @@ import android.util.Log
 import java.security.MessageDigest
 
 /**
- * [ANR-05] 7つ目の「SDK風」初期化。**背面で起こされた起動のときだけ**走る、
- * 「未送信レポートのインデックス再構築」。
+ * [ANR-05] 7つ目の「SDK風」初期化。**背面で起こされた起動のときだけ**走る
+ * 「未送信レポートのインデックス再構築」——溜まった未送信レポートの索引を作り直す、
+ * 実アプリに実在する種類の挙動（溜まるのは放置されたときだけ＝いちばん人目に付かない
+ * 背面起動でいちばん重くなる）。呼び出し側からは無害な1行にしか見えない。
  *
- * ## (a) 物語
+ * 背面起動には入力の番犬（5秒）がおらず、`onCreate` を見張るのは `bindApplication` の
+ * **15秒**締切だけ（詳細は [StartupOrigin]）。ANR-02 の6つ（実測 7.8〜8.5秒）では届かず、
+ * ここに [WORK_MILLIS] が乗って合計約18.5秒＝初めて締切を越える。**単独犯ではなく総量**
+ * という ANR-02 の教訓の、締切を変えた再演。前面起動では走らないので前面の挙動は変わらない。
  *
- * クラッシュ / ANR 報告 SDK は、端末に溜まった未送信レポートを送る前に、
- * ローカルの索引を作り直すことがある（何が未送信で、どれが重複で、どれが期限切れか）。
- * 溜まっている件数に比例して重くなり、**溜まるのは端末がしばらく放置されたときだけ**。
- * つまり「ジョブに起こされた背面起動」という、いちばん人目に付かない場面で
- * いちばん重くなるという性質を持つ。実アプリに実在する種類の挙動で、
- * デモ用の `Thread.sleep(15000)` のような作り物ではない。
+ * 処方は ANR-02 と同じ「`onCreate` は予約だけ」＝ [StartupGate.runOnWorkerThread]。
  *
- * 呼び出し側（[com.pelantica.dorodorotimer.app.DorodoroApplication.onCreate]）からは
- * `UnsentReportIndexInitializer.init()` という無害な1行にしか見えないのも
- * ANR-02 の6つと同じで、これが事例の肝。
+ * ## 再現
+ * - WorkManager 経路: `./scripts/demo-anr05.sh`（1コマンド。README の連結レシピ参照）
+ * - アラーム経路（adb 不要）: 短いタイマーを開始 → Recents からスワイプ終了 → 放置
+ * - ⚠️ `am force-stop` はジョブ・アラームごと消えるので使わない。ANR 死直後の起動は
+ *   [StartupOrigin.lastExitWasAnr] の安全弁で軽くなる＝普通に開ける。最終脱出は `pm clear`。
  *
- * ## (b) なぜ「背面だけ」なのか
- *
- * 番犬が違う。
- *
- * | 起動のしかた | onCreate を見張る締切 | 破ったとき |
- * | --- | --- | --- |
- * | 前面（ランチャー / Activity） | 入力ディスパッチ **5秒**（ユーザーが触れば） | ANR ダイアログが出る |
- * | 背面（ジョブ / ブロードキャスト） | `bindApplication` **15秒** ×`ro.hw_timeout_multiplier` | **ダイアログなしで無言 kill** |
- *
- * 背面起動には触るユーザーがいない＝入力の番犬はそもそも鳴かない。
- * 代わりに AMS 側の `BIND_APPLICATION_TIMEOUT`（15秒）だけが `onCreate` を見張っていて、
- * これを破ると `Process ... failed to complete startup` を Reason に ANR が立ち、
- * プロセスは何も表示せずに消える。詳しい根拠は [StartupOrigin] の KDoc。
- *
- * ANR-02（6つの初期化・合計6.6〜8.0秒）は前面5秒の締切は破るが、15秒には届かない。
- * そこにこの初期化が乗って初めて 15秒を越える。つまり**単独犯ではなく総量**という
- * ANR-02 の教訓が、締切の種類を変えてもう一度効いてくる形になっている。
- *
- * ## (c) 処方
- *
- * ANR-02 とまったく同じ。「`onCreate` は予約だけ。仕事をしない」＝
- * [StartupGate.runOnWorkerThread] と同じくワーカースレッドへ逃がす。
- * 索引の再構築を待っている相手は WorkManager のワーカーだけで、そのワーカーは
- * 最初から別スレッドにいる。メインで走らせる理由はどこにもない。
- * 「起動が遅いだけ」ではなく「起動が**完了しない**」に化けるのが背面の怖いところで、
- * 前面でギリギリ間に合っているコードほど、背面で初めて牙を剥く。
- *
- * ## (d) 再現レシピ
- *
- * 設定画面で master ON / ANR-02 ON / ANR-05 ON（ANR-03 は OFF）にして再起動しておく。
- * ⚠️ `am force-stop` は使わない（ジョブもアラームも消える）。プロセスを殺すのは `am kill`。
- *
- * ```bash
- * # 1) WorkManager 経路 → スクリプト1本で完結（武装 → kill → 起床 → AEI 確認まで）
- * ./scripts/demo-anr05.sh
- * #    手でやる場合の要点だけ:
- * #      - 武装は前面起動の onCreate（初期遅延30秒）。30秒以内に背面へ落として殺す
- * #      - am kill は cached に落ちるまで no-op。pid が消えるまで撃ち続ける
- * #      - 非給電だとジョブのクォータで鳴らなくなる（cmd battery set ac 1 で回避）
- *
- * # 2) アラーム（ブロードキャスト）経路: タイマーを1分など短めにして開始 → Recents から
- * #    スワイプで終了（または am kill）→ 終了時刻を待つ。adb なしで再現できるのはこちら。
- * #    ⚠️ TimerAlarmReceiver は exported=false なので、`adb shell am broadcast` で
- * #    直接叩くことはできない（黙って result=0 で落ちるだけでプロセスも起きない）。
- * #    この経路を試すにはアプリ自身にアラームを張らせるしかない。
- *
- * # どちらも Start proc から約15秒後（＝締切ちょうど）に:
- * adb logcat | grep -E "ANR in|failed to complete startup|bg anr"
- * adb shell dumpsys activity exit-info com.pelantica.dorodorotimer   # reason=6 (ANR)
- * ```
- *
- * 脱出できなくなったら `adb shell pm clear com.pelantica.dorodorotimer`（フラグも消える）。
- * ただし [StartupOrigin.lastExitWasAnr] の安全弁があるので、ANR 死の直後の起動は
- * この初期化をスキップする＝普通に開ける。
- *
- * ## (e) 実機校正の記録（エミュ API 37 (emulator-5554) / 2026-08-16）
- *
- * - `adb shell getprop ro.hw_timeout_multiplier` は**空**＝1。つまり締切は素の 15 秒。
- * - 背面起動時の ANR-02（`StartupGate: all initializers done in ...ms (on-main)`）は
- *   実測 **7844 / 8019 / 8113 / 8330 / 8479ms**。ここに [WORK_MILLIS] = 10,500ms を足すと
- *   onCreate の合計は約 **18.5秒** で、15秒の締切を**約3.5秒の余裕を持って**越える。
- *   逆に前面（入力5秒）は ANR-02 だけで既に越えているので、この上乗せは前面の挙動を変えない。
- * - 実測の打ち切り時刻は `Start proc` から **15.335 / 15.362 / 15.394 秒**（3回・2経路）。
- *   締切ちょうどで殺されるので、この初期化は 10.5秒 のうち **約6.5秒しか走らないまま**終わる。
- *   つまり [WORK_MILLIS] は「15秒を越えさせる」ためのマージンであって、全部消費される値ではない。
- *   これ以上増やしても ANR までの時間は縮まない（締切は固定）。
- * - 観測されたログ: `ANR in com.pelantica.dorodorotimer` /
- *   `Reason: Process ProcessRecord{...} failed to complete startup` /
- *   `Killing ... (adj 0): bg anr`。**ANR ダイアログは出ない**。
- * - `dumpsys activity exit-info`: `reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)` /
- *   `description=bg anr: Process ProcessRecord{...} failed to complete startup` /
- *   `isUserPerceptible=false`。
- * - 次回の前面起動で Crashlytics が回収して送信（`Status Code: 200`）。
- * - 同じフラグのまま前面（ランチャー）起動は生き残る
- *   （`am start -W` TotalTime 9993 / 10452 / 12484ms ＝ ANR-02 単独と同じ）。
- *
- * 端末が変われば [WORK_MILLIS] だけを再校正する。目安は
- * 「ANR-02 の実測（on-main のログ）＋ [WORK_MILLIS] が 15秒 × `ro.hw_timeout_multiplier`
- * を 3秒以上上回ること」。
+ * ## 校正（エミュ API 37 / multiplier=1 / 2026-08-16 実測）
+ * ANR-02 実測 7.8〜8.5秒 + [WORK_MILLIS] 10.5秒 ≒ 18.5秒 > 締切15秒
+ * （打ち切りは Start proc から 15.3〜15.4秒＝締切ちょうど。WORK_MILLIS は越えるための
+ * マージンであり全部は消費されない）。端末が変わったら「ANR-02 実測 + WORK_MILLIS が
+ * 15秒 × `ro.hw_timeout_multiplier` を3秒以上上回る」よう WORK_MILLIS だけ再校正する。
  */
 internal object UnsentReportIndexInitializer {
 
