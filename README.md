@@ -22,8 +22,8 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | ANR-ID | 事例 | 軸 | 締切種別 | 配置 | 処方 | 状態 |
 | --- | --- | --- | --- | --- | --- | --- |
 | ANR-01 | メインスレッド I/O（生SQLite vs Room） | busy | input | `di/AppModule.kt:76`（DI差し替え）/ `data/local/stats/BlockingStatsRepository.kt:20` | Room の suspend DAO に任せる（守ってくれないライブラリは自前で `withContext(IO)`） | 実装済み |
-| ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt:27` / `app/startup/StartupGate.kt:58` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
-| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `feature/stats/StatsScreen.kt:42`（フックのみ） | シングルトン遅延評価 / 重い処理をメイン外へ | フックのみ（本体未実装） |
+| ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt:31` / `app/startup/StartupGate.kt:58` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
+| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `data/local/stats/StatsStore.kt:120`（ロック保持）/ `app/DorodoroApplication.kt:56`（BGでウォームアップ）/ `feature/stats/StatsScreen.kt:53`（メインの同期アクセス） | メインから同期アクセスしない（suspend 化して `withContext` で待つ）/ 初期化とロック保持の分離（ロック内は代入だけ）/ シングルトン遅延評価の設計 | 実装済み（実機校正は登壇前TODO） |
 | ANR-04 | Keystore 操作（Binder + セキュアHW IPC） | waiting | binder | _未_ | 鍵操作を IO へ | 未着手（速射枠） |
 | ANR-05 | WorkManager / JobService（ANR-02 連結） | waiting | job | `service/work/AnrLogUploadScheduler.kt:18` / `AnrLogUploadWorker.kt:26` | doWork 自体は正しく軽量（無罪）。真犯人は起こされた先の重い onCreate | 実装済み |
 | ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt:22` / `service/ReceiverWork.kt:26` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |

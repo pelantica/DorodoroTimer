@@ -6,8 +6,10 @@ package com.pelantica.dorodorotimer.core.debug
  * @property requiresRestart トグルを変更した効果が反映されるのにアプリの再起動が必要か。
  *  - true: 起動時に一度だけ配線される系（Koin `single` のDI差し替え、`Application.onCreate`
  *    内での分岐など）。`single` はキャッシュされ、`onCreate` は既に実行済みのため、
- *    プロセスを再起動するまでトグルの変更が反映されない。
- *  - false: 使うたびにフラグを読む系（`onReceive` / Composable の `LaunchedEffect` /
+ *    プロセスを再起動するまでトグルの変更が反映されない。**発火点が毎回フラグを読む場合でも、
+ *    その相方が起動時にしか配線されないなら true**（例: ANR_03 の画面側は毎回読むが、
+ *    待つ相手のウォームアップは `onCreate` でしか走らない）。
+ *  - false: 使うたびにフラグを読み、それだけで完結する系（`onReceive` /
  *    `startForeground` 呼び出し直前 など）。再起動不要で次回発火時から反映される。
  */
 enum class Anr(val requiresRestart: Boolean) {
@@ -17,8 +19,12 @@ enum class Anr(val requiresRestart: Boolean) {
     /** Application.onCreate 内で読む（起動時の重い同期初期化）。onCreate は起動時に一度しか走らない。 */
     ANR_02(requiresRestart = true),
 
-    /** ディープリンク受信時・LaunchedEffect 内で毎回読む。再起動不要。 */
-    ANR_03(requiresRestart = false),
+    /**
+     * 統計ストアのウォームアップを Application.onCreate で起動するか判定する（起動 × ロック競合）。
+     * 画面側（LaunchedEffect）でも毎回読むが、待つ相手のロックを握るウォームアップが
+     * onCreate でしか走らないため、トグルの効果は次のプロセス起動から。
+     */
+    ANR_03(requiresRestart = true),
 
     /** Application.onCreate 内で読み、ANRログ送信 Work を enqueue するか判定する。 */
     ANR_05(requiresRestart = true),
