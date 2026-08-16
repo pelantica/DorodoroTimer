@@ -24,14 +24,16 @@ import com.pelantica.dorodorotimer.core.debug.DemoFlagsState
 object CrashReportBreadcrumbs {
 
     /**
-     * Firebase 未初期化なら null。Robolectric のユニットテストでは FirebaseInitProvider が
-     * 走らず [FirebaseCrashlytics.getInstance] が IllegalStateException を投げるため、
-     * ここで吸収する。パンくずは診断の付加情報であり、無くてもアプリの動作には関係ない。
+     * Firebase 未初期化なら null。ユニットテストでは FirebaseInitProvider が走らないため
+     * [FirebaseCrashlytics.getInstance] が失敗する: Robolectric なら IllegalStateException、
+     * 素の JVM テストなら `android.os.Process.myPid` が未モックで RuntimeException になる
+     * （FirebaseApp が例外メッセージを組み立てる過程で Android API を触るため）。
+     * どちらもここで吸収する。パンくずは診断の付加情報であり、無くてもアプリの動作には関係ない。
      */
     private val crashlytics: FirebaseCrashlytics?
         get() = try {
             FirebaseCrashlytics.getInstance()
-        } catch (_: IllegalStateException) {
+        } catch (_: RuntimeException) {
             null
         }
 

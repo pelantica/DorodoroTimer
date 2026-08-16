@@ -32,6 +32,7 @@
     <!-- settings -->
     <string name="settings_demo_mode_title">🧪 デモモード（ANR再現）</string>
     <string name="settings_demo_mode_desc">ONにすると、わざとANRを誘発する実装経路を通る。登壇デモ用。リリースでは常にOFF。</string>
+    <string name="settings_demo_master_restart_note">OFFにすると個別トグルもすべてOFFになります（再起動が必要な事例は再起動後に反映）。</string>
     <string name="settings_anr_section_title">ANR個別トグル</string>
     <string name="settings_anr_01_label">ANR-01 メインスレッドI/O</string>
     <string name="settings_anr_02_label">ANR-02 起動時の重い初期化</string>

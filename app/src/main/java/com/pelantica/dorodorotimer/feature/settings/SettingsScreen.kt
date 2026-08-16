@@ -103,6 +103,14 @@ fun SettingsContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // マスターOFFは確認ダイアログを出さず個別トグルを一括クリアするので、
+                    // 挙動を常設の注記で先出ししておく（モーダルや Snackbar は使わない）。
+                    Text(
+                        text = stringResource(R.string.settings_demo_master_restart_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Switch(
