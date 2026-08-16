@@ -25,10 +25,38 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt:31` / `app/startup/StartupGate.kt:58` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
 | ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `data/local/stats/StatsStore.kt:120`（ロック保持）/ `app/DorodoroApplication.kt:56`（BGでウォームアップ）/ `feature/stats/StatsScreen.kt:53`（メインの同期アクセス） | メインから同期アクセスしない（suspend 化して `withContext` で待つ）/ 初期化とロック保持の分離（ロック内は代入だけ）/ シングルトン遅延評価の設計 | 実装済み（実機校正は登壇前TODO） |
 | ANR-04 | Keystore 操作（Binder + セキュアHW IPC） | waiting | binder | _未_ | 鍵操作を IO へ | 未着手（速射枠） |
-| ANR-05 | WorkManager / JobService（ANR-02 連結） | waiting | job | `service/work/AnrLogUploadScheduler.kt:18` / `AnrLogUploadWorker.kt:26` | doWork 自体は正しく軽量（無罪）。真犯人は起こされた先の重い onCreate | 実装済み |
+| ANR-05 | 背面起動 ANR（WorkManager / AlarmManager が起こす・ANR-02 連結） | busy | 起動（bind application 15秒） | `app/DorodoroApplication.kt:60`（分岐）/ `app/startup/StartupOrigin.kt:131`（背面判定）・`:173`（安全弁）/ `app/startup/UnsentReportIndexInitializer.kt:138`（+10.5秒）/ `service/work/AnrLogUploadScheduler.kt:47`（種蒔き） | ANR-02 と同じ「onCreate は予約だけ」＝ `StartupGate.runOnWorkerThread`。doWork 自体は軽量なまま（無罪） | 実装済み（実機E2E検証済み） |
 | ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt:22` / `service/ReceiverWork.kt:26` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
 | ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
 | ANR-FGS | ForegroundService の startForeground 5秒ルール | waiting | service | _未_（実体候補は `service/AmbientSoundService.kt`。現状 ANR フック無し） | 即 startForeground / 重い初期化を後へ | 未着手（CFP外・目玉候補） |
+
+### 連結レシピ：ANR-05 背面起動 ANR（ANR-02 と2つ ON）
+
+設定画面で **master ON / ANR-02 ON / ANR-05 ON**（ANR-03 は OFF）にして再起動する。この時点で**前面起動は従来どおり生き残る**（約9〜12秒。ANR-02 の入力5秒は破るが文鎮化はしない）。ANR が出るのは**背面で起こされた起動だけ**で、そちらの締切は `bindApplication` の **15秒 × `ro.hw_timeout_multiplier`** ひとつしかない。
+
+```bash
+adb shell getprop ro.hw_timeout_multiplier   # 空か 1 でなければ締切が15秒ではない
+
+# WorkManager 経路（Work は onCreate で武装・初期遅延20秒。20秒以内に落として殺す）
+adb shell am start -n com.pelantica.dorodorotimer/.MainActivity
+adb shell input keyevent KEYCODE_HOME
+sleep 5                                       # cached に落ちるまで待つ
+adb shell am kill com.pelantica.dorodorotimer # ⚠️ force-stop は不可（下記）
+adb shell dumpsys jobscheduler | grep -oE "androidx.work.systemjobscheduler:u0a[0-9]+/[0-9]+"
+adb shell cmd jobscheduler run -f -n androidx.work.systemjobscheduler \
+  com.pelantica.dorodorotimer <jobId>         # -n（namespace）必須
+
+# アラーム経路: タイマーを1分にして開始 → HOME → am kill → 終了時刻を待つ
+#   TimerAlarmReceiver は exported=false なので adb の am broadcast では叩けない
+
+# Start proc から約15秒後
+adb logcat | grep -E "ANR in|failed to complete startup|bg anr"
+adb shell dumpsys activity exit-info com.pelantica.dorodorotimer
+```
+
+- ⚠️ **`am force-stop` は使わない**。ジョブもアラームも一緒に消えて、プロセスを起こす仕掛けが無くなる。プロセスを殺すのは `am kill`（cached になってから。前面のままだと効かない）。
+- **背面 ANR はダイアログを出さない**。`Killing ... (adj 0): bg anr` で無言 kill され、痕跡は ApplicationExitInfo（`reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)` / `isUserPerceptible=false`）と、次回起動時に Crashlytics が拾って送るレポートだけ。
+- 安全弁: 直前が ANR 死なら次の起動は重い初期化をスキップする（`StartupOrigin.lastExitWasAnr`）。再配送ループでの連続 ANR と、デモ機の文鎮化を防ぐ。**それでも開けなくなったら脱出は `adb shell pm clear com.pelantica.dorodorotimer`**（demoMode のフラグも消える）。
 
 CFP 外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は Notion のバックログに記録済み。採否は後日選定。
 
@@ -80,4 +108,4 @@ com.pelantica.dorodorotimer
 
 ## ステータス
 
-タイマー・統計・設定・テーマは製品品質で動作。ANR パターンは **01 / 02 / 05 / 06 が実装済み**（対応表参照。02 は正版=ワーカー実行込み）。03 はフックのみ、04 / 07 / FGS は未着手。
+タイマー・統計・設定・テーマは製品品質で動作。ANR パターンは **01 / 02 / 05 / 06 が実装済み**（対応表参照。02 は正版=ワーカー実行込み、05 は実機E2E検証済み）。03 はフックのみ、04 / 07 / FGS は未着手。

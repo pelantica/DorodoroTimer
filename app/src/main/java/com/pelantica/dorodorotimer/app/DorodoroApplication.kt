@@ -2,6 +2,8 @@ package com.pelantica.dorodorotimer.app
 
 import android.app.Application
 import com.pelantica.dorodorotimer.app.startup.StartupGate
+import com.pelantica.dorodorotimer.app.startup.StartupOrigin
+import com.pelantica.dorodorotimer.app.startup.UnsentReportIndexInitializer
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
@@ -55,15 +57,38 @@ class DorodoroApplication : Application() {
             //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
             thread(name = "stats-store-warmup") { StatsStore.warmUp() }
         }
+        if (DemoConfig.isOn(Anr.ANR_05)
+            && StartupOrigin.isBackgroundStart(this)
+            && !StartupOrigin.lastExitWasAnr(this)
+        ) {
+            // [ANR-05] 背面で起こされたついでに溜まった仕事を片付ける:
+            //  未送信レポートのインデックス再構築（約+10秒の実作業）。
+            //
+            //  **背面起動には入力が無い＝入力ディスパッチ5秒の番犬は鳴かない。**
+            //  onCreate を見張っているのは AMS の bindApplication 締切（15秒 ×
+            //  ro.hw_timeout_multiplier）だけで、これを破ると ANR ダイアログすら出ずに
+            //  無言で kill される（Reason: Process ... failed to complete startup）。
+            //  ANR-02 の6つ（6.6〜8.0秒）だけでは15秒に届かない。この1行が乗って初めて越える。
+            //  ＝「単独犯ではなく総量」という ANR-02 の教訓が、締切の種類を変えて再演される。
+            //
+            //  第3項は安全弁: 直前が ANR 死なら今回は重くしない。背面 ANR 死 →
+            //  ジョブ再スケジュール → また起こされてまた死ぬ、の無限ループを断ち、
+            //  デモ機が二度と開けなくなる事態（文鎮化）も構造的に防ぐ。鳴るのは1回武装につき1発。
+            //  処方は ANR-02 と同じ「onCreate は予約だけ」＝ StartupGate.runOnWorkerThread。
+            UnsentReportIndexInitializer.init()
+        }
         startKoin {
             androidContext(this@DorodoroApplication)
             modules(appModule)
         }
         if (DemoConfig.isOn(Anr.ANR_05)) {
-            // [ANR-05] demoMode 時、ANRログ送信を模して Work を enqueue する。
-            //  冷えたプロセスに WorkManager がジョブを投げると新プロセスが立ち上がり、
-            //  ANR-02 の重い onCreate が起動枠内で走ることで起動 ANR になる（連結シナリオ）。
-            //  ANR-02 トグルも ON にして、アプリを BG に落とした後に発火させること。
+            // [ANR-05] demoMode 時、ANRログ送信を模して Work を enqueue する＝**種蒔き**。
+            //  ここ自体は無実（doWork も軽量なまま）。役割は「アプリが死んだ後にプロセスを
+            //  起こす仕掛け」を仕込むことだけで、事故は起こされた先の onCreate（上の分岐）で起きる。
+            //  enqueueUniqueWork は KEEP なので、一度武装したカウントダウンは
+            //  以後の起動でリセットされない（理由は AnrLogUploadScheduler の KDoc）。
+            //  ANR-02 トグルも ON にして、アプリを BG に落とし `am kill` してから発火させること
+            //  （`am force-stop` はジョブごと消えるので不可）。
             AnrLogUploadScheduler.enqueue(this)
         }
         // onCreate の末尾に置く: 同じ prefs を DemoConfig.isOn が既にロード済みなので
