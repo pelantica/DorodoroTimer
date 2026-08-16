@@ -19,6 +19,10 @@ import org.koin.core.context.startKoin
 class DorodoroApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Application.onCreate は**プロセスごとに**走る。[ANR-04] の鍵庫を :vault プロセスに
+        // 置いたので、以下の初期化一式（Koin・StrictMode・起動時の仕掛け）を素通りさせないと
+        // 別プロセスでも丸ごと再実行されてしまう。理由の詳細は AppProcess の KDoc。
+        if (!AppProcess.isMainProcess(this)) return
         // demoMode とは無関係に、デバッグビルドでは常にメインスレッドのI/Oを見張る。
         // onCreate の先頭に置くのは、直後の DemoConfig.init（SharedPreferences の読み込み）
         // も観測対象に含めるため。SharedPreferences の実際の読み込みは別スレッドで走るが、

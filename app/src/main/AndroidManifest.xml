@@ -48,6 +48,14 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <!-- [ANR-04] 「セキュアHW付き鍵庫」の代役。別プロセス(:vault)に置くことで、
+             メインスレッドからの呼び出しが本物の Binder IPC（同期 transact）になる。
+             同一UIDの自プロセスからしか bind しないので exported=false。 -->
+        <service
+            android:name=".vendor.securevault.SecureVaultService"
+            android:exported="false"
+            android:process=":vault" />
+
         <!-- タイマー終了アラームの受け口（AlarmManager → 終了通知）。exported=false。 -->
         <receiver
             android:name=".service.TimerAlarmReceiver"
