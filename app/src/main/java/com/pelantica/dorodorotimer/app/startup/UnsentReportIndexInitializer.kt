@@ -53,21 +53,15 @@ import java.security.MessageDigest
  * ⚠️ `am force-stop` は使わない（ジョブもアラームも消える）。プロセスを殺すのは `am kill`。
  *
  * ```bash
- * # 1) WorkManager 経路
- * #    Work は onCreate で武装され初期遅延20秒。アプリが生きたまま20秒経つと
- * #    その場で消化されてしまうので、**起動してから20秒以内に**背面へ落として殺す。
- * adb shell am start -n com.pelantica.dorodorotimer/.MainActivity   # ここで武装される
- * adb shell input keyevent KEYCODE_HOME
- * sleep 5                                   # cached に落ちるまで待つ（待たないと am kill が効かない）
- * adb shell am kill com.pelantica.dorodorotimer
- * adb shell pidof com.pelantica.dorodorotimer            # 空なら死亡
- * # 放っておけば残りの遅延で自然に発火する。すぐ試したいなら jobId を指定して強制実行:
- * adb shell dumpsys jobscheduler | grep -oE "androidx.work.systemjobscheduler:u0a[0-9]+/[0-9]+"
- * adb shell cmd jobscheduler run -f -n androidx.work.systemjobscheduler \
- *   com.pelantica.dorodorotimer <jobId>     # -n（namespace）が無いと job が見つからない
+ * # 1) WorkManager 経路 → スクリプト1本で完結（武装 → kill → 起床 → AEI 確認まで）
+ * ./scripts/demo-anr05.sh
+ * #    手でやる場合の要点だけ:
+ * #      - 武装は前面起動の onCreate（初期遅延30秒）。30秒以内に背面へ落として殺す
+ * #      - am kill は cached に落ちるまで no-op。pid が消えるまで撃ち続ける
+ * #      - 非給電だとジョブのクォータで鳴らなくなる（cmd battery set ac 1 で回避）
  *
- * # 2) アラーム（ブロードキャスト）経路: タイマーを1分など短めにして開始 → HOME →
- * #    am kill → 終了時刻を待つ。AlarmManager が TimerAlarmReceiver を配送して起こす。
+ * # 2) アラーム（ブロードキャスト）経路: タイマーを1分など短めにして開始 → Recents から
+ * #    スワイプで終了（または am kill）→ 終了時刻を待つ。adb なしで再現できるのはこちら。
  * #    ⚠️ TimerAlarmReceiver は exported=false なので、`adb shell am broadcast` で
  * #    直接叩くことはできない（黙って result=0 で落ちるだけでプロセスも起きない）。
  * #    この経路を試すにはアプリ自身にアラームを張らせるしかない。

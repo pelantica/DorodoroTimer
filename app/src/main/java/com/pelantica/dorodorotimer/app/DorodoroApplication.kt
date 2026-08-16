@@ -57,8 +57,12 @@ class DorodoroApplication : Application() {
             //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
             thread(name = "stats-store-warmup") { StatsStore.warmUp() }
         }
-        if (DemoConfig.isOn(Anr.ANR_05)
-            && StartupOrigin.isBackgroundStart(this)
+        // [ANR-05] 「誰に起こされたか」は下の2か所で使うので一度だけ問い合わせる
+        //  （Binder 往復を二重にしない。トグル OFF なら問い合わせ自体を行わない）。
+        val isAnr05On = DemoConfig.isOn(Anr.ANR_05)
+        val isBackgroundStart = isAnr05On && StartupOrigin.isBackgroundStart(this)
+        if (isAnr05On
+            && isBackgroundStart
             && !StartupOrigin.lastExitWasAnr(this)
         ) {
             // [ANR-05] 背面で起こされたついでに溜まった仕事を片付ける:
@@ -81,14 +85,19 @@ class DorodoroApplication : Application() {
             androidContext(this@DorodoroApplication)
             modules(appModule)
         }
-        if (DemoConfig.isOn(Anr.ANR_05)) {
-            // [ANR-05] demoMode 時、ANRログ送信を模して Work を enqueue する＝**種蒔き**。
+        if (isAnr05On && !isBackgroundStart) {
+            // [ANR-05] ANRログ送信を模して Work を enqueue する＝**種蒔き**。
             //  ここ自体は無実（doWork も軽量なまま）。役割は「アプリが死んだ後にプロセスを
             //  起こす仕掛け」を仕込むことだけで、事故は起こされた先の onCreate（上の分岐）で起きる。
-            //  enqueueUniqueWork は KEEP なので、一度武装したカウントダウンは
-            //  以後の起動でリセットされない（理由は AnrLogUploadScheduler の KDoc）。
+            //
+            //  **前面起動のときだけ**張り直すのが肝。背面起動＝いま自分を起こしてくれた Work が
+            //  実行されようとしている最中なので、そこで同じ一意名を触ると自分の目覚ましを
+            //  壊してしまう（REPLACE ならキャンセル、KEEP なら no-op、APPEND なら次が遠のく。
+            //  3通り全部踏んだ記録が AnrLogUploadScheduler の KDoc にある）。
+            //  触らなければ REPLACE で単純に「常にちょうど1つ・20秒後」に保てる。
+            //
             //  ANR-02 トグルも ON にして、アプリを BG に落とし `am kill` してから発火させること
-            //  （`am force-stop` はジョブごと消えるので不可）。
+            //  （`am force-stop` はジョブごと消えるので不可）。`scripts/demo-anr05.sh` が自動化済み。
             AnrLogUploadScheduler.enqueue(this)
         }
         // onCreate の末尾に置く: 同じ prefs を DemoConfig.isOn が既にロード済みなので

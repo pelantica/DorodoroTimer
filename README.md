@@ -34,28 +34,29 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 
 設定画面で **master ON / ANR-02 ON / ANR-05 ON**（ANR-03 は OFF）にして再起動する。この時点で**前面起動は従来どおり生き残る**（約9〜12秒。ANR-02 の入力5秒は破るが文鎮化はしない）。ANR が出るのは**背面で起こされた起動だけ**で、そちらの締切は `bindApplication` の **15秒 × `ro.hw_timeout_multiplier`** ひとつしかない。
 
+**いちばん簡単な再現（アラーム経路・adb 不要・操作は2つ）**:
+
+1. タイマーを短く（1分など）にして**開始**
+2. タスク一覧（Recents）からアプリを**スワイプで終了**（⚠️ 設定アプリの「強制停止」は仕掛けごと消えるので不可）
+3. あとは放置。タイマー終了時刻にアラームがプロセスを起こし、**約15秒後に無言で kill** される（画面には何も出ない。証拠は下の「観測」）
+
+**WorkManager 経路（1コマンド）**: `./scripts/demo-anr05.sh` — 武装 → kill → 目覚まし待ち → 起動理由の表示 → AEI の確認まで自動でやり、各段階を実況する。前回の残骸・生き残りプロセス・期限切れ Work があっても通るように書いてあるので、連続で何度でも回せる（1回あたり約1分）。スクリプトが吸収する端末側の事情:
+
+- `am kill` は対象が cached に落ちるまで no-op なので、**pid が消えるまでリトライ**する（1発撃って sleep する方式だと取りこぼす）
+- 非給電の端末は JobScheduler の**クォータ**が効き、デモを繰り返すと `WITHIN_QUOTA` が外れて鳴らなくなる → 給電中に見せかける（戻すには `adb shell cmd battery reset`）
+- Android 15+ の**フレキシブルなジョブ実行**でまとめて実行されるため、初期遅延が切れてから実際に鳴るまで更に1〜2分かかる（実測 約102秒）→ フレックスを切り、遅延が切れたら強制実行で前に倒す（戻すには `adb shell cmd jobscheduler reset-flex-policy`）
+
+**観測**（どちらの経路でも）:
+
 ```bash
 adb shell getprop ro.hw_timeout_multiplier   # 空か 1 でなければ締切が15秒ではない
-
-# WorkManager 経路（Work は onCreate で武装・初期遅延20秒。20秒以内に落として殺す）
-adb shell am start -n com.pelantica.dorodorotimer/.MainActivity
-adb shell input keyevent KEYCODE_HOME
-sleep 5                                       # cached に落ちるまで待つ
-adb shell am kill com.pelantica.dorodorotimer # ⚠️ force-stop は不可（下記）
-adb shell dumpsys jobscheduler | grep -oE "androidx.work.systemjobscheduler:u0a[0-9]+/[0-9]+"
-adb shell cmd jobscheduler run -f -n androidx.work.systemjobscheduler \
-  com.pelantica.dorodorotimer <jobId>         # -n（namespace）必須
-
-# アラーム経路: タイマーを1分にして開始 → HOME → am kill → 終了時刻を待つ
-#   TimerAlarmReceiver は exported=false なので adb の am broadcast では叩けない
-
-# Start proc から約15秒後
 adb logcat | grep -E "ANR in|failed to complete startup|bg anr"
 adb shell dumpsys activity exit-info com.pelantica.dorodorotimer
 ```
 
 - ⚠️ **`am force-stop` は使わない**。ジョブもアラームも一緒に消えて、プロセスを起こす仕掛けが無くなる。プロセスを殺すのは `am kill`（cached になってから。前面のままだと効かない）。
-- **背面 ANR はダイアログを出さない**。`Killing ... (adj 0): bg anr` で無言 kill され、痕跡は ApplicationExitInfo（`reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)` / `isUserPerceptible=false`）と、次回起動時に Crashlytics が拾って送るレポートだけ。
+- **背面 ANR はダイアログを出さない**。`Killing ... (adj 0): bg anr` で無言 kill され、痕跡は ApplicationExitInfo（`reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)`。`anrInfo` が付く場合は `isUserPerceptible=false` も見える）と、次回起動時に Crashlytics が拾って送るレポートだけ。
+- 目覚ましの Work は**前面起動のときだけ**張り直す（`ExistingWorkPolicy.REPLACE`）。背面起動から同じ一意名を触ると自分を起こした Work を壊すため。ポリシーを3通り試して踏んだ失敗は `service/work/AnrLogUploadScheduler.kt` の KDoc に記録した。
 - 安全弁: 直前が ANR 死なら次の起動は重い初期化をスキップする（`StartupOrigin.lastExitWasAnr`）。再配送ループでの連続 ANR と、デモ機の文鎮化を防ぐ。**それでも開けなくなったら脱出は `adb shell pm clear com.pelantica.dorodorotimer`**（demoMode のフラグも消える）。
 
 CFP 外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は Notion のバックログに記録済み。採否は後日選定。
