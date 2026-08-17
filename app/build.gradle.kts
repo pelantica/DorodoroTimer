@@ -12,9 +12,7 @@ plugins {
     //  alias(libs.plugins.sqldelight)
 }
 
-// リリース署名（アップロード鍵）の秘密は keystore.properties（gitignore・リポジトリ外の鍵を指す）から読む。
-// 構造だけをここに書き、秘密はコミットしない。ファイルが無い環境（CI未整備・他者のクローン）では
-// release 署名なしになるだけで debug ビルドやテストには影響しない。雛形は keystore.properties.example。
+// 署名情報は keystore.properties（gitignore）から読む。無い環境では未署名 release になるだけ。
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -42,7 +40,6 @@ android {
     }
 
     signingConfigs {
-        // アップロード鍵。keystore.properties がある環境でだけ有効化する。
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
@@ -55,13 +52,12 @@ android {
 
     buildTypes {
         release {
-            // ANR-01 等の再現コードが minify で消えると教材にならないため無効のまま（README 参照）。
+            // ANR 再現コードが minify で消えると教材にならないため無効のまま。
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // keystore.properties がある環境でだけ署名する。無い環境では未署名 release になる。
             signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
         }
     }
