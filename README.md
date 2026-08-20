@@ -30,6 +30,10 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
 | ANR-FGS | ForegroundService の startForeground 5秒ルール | waiting | service | _未_（実体候補は `service/AmbientSoundService.kt`。現状 ANR フック無し） | 即 startForeground / 重い初期化を後へ | 未着手（CFP外・目玉候補） |
 
+### ⚠️ ANR-01 は端末スペック依存（高性能端末では出ないことがある）
+
+ANR-01 のシード書き込みは**行数固定（5000行）**のため、高性能端末（例: Xiaomi 15T Pro / Dimensity 9400+）では一瞬で終わり、入力ディスパッチの5秒締切に届かず ANR にならないことがある。これは欠陥ではなく、**「同じコードでも端末スペックで ANR が出たり出なかったりする」という ANR の環境依存性の実例**（→ 事例③「ANRは環境に左右される」）。エミュレータや廉価端末では再現する。Vitals 採取など**端末非依存で確実に固めたい**場合は、時間基準で保持する ANR-03（25秒）や ANR-05 を使う。
+
 ### 連結レシピ：ANR-05 背面起動 ANR（ANR-02 と2つ ON）
 
 設定画面で **master ON / ANR-02 ON / ANR-05 ON**（ANR-03 は OFF）にして再起動する。この時点で**前面起動は従来どおり生き残る**（約9〜12秒。ANR-02 の入力5秒は破るが文鎮化はしない）。ANR が出るのは**背面で起こされた起動だけ**で、そちらの締切は `bindApplication` の **15秒 × `ro.hw_timeout_multiplier`** ひとつしかない。
