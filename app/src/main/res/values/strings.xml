@@ -30,9 +30,6 @@
     <string name="stats_row_total_minutes">⏱️ 合計 %1$d 分</string>
 
     <!-- settings: セキュリティ（一般設定。demoMode とは独立） -->
-    <string name="settings_security_section_title">セキュリティ</string>
-    <string name="settings_encrypt_records_label">集中記録を暗号化</string>
-    <string name="settings_encrypt_records_desc">記録の保存時に暗号化します。初回のONで鍵を生成します（デモ用のモック実装）</string>
 
     <!-- settings -->
     <string name="settings_demo_mode_title">🧪 デモモード（ANR再現）</string>

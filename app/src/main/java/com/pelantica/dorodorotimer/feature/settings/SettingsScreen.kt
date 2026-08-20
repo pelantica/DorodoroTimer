@@ -17,7 +17,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -54,23 +53,12 @@ fun SettingsScreen(
     // StrictMode バナーは demoMode（ViewModel が扱うフラグ）と独立したデバッグ基盤なので、
     // バナー本体と同じくシングルトンを直接購読する（ステートレスな Content には値で渡す）。
     val strictModeBannerMuted by StrictModeBannerSettings.muted.collectAsState()
-    val encryptFocusRecords by viewModel.encryptFocusRecords.collectAsState()
     val context = LocalContext.current
-    // [ANR-04] 鍵庫（:vault プロセス）へは、この画面が見えている間だけ接続する。
-    //  ここで先に繋いでおくことで、トグルを押した瞬間には接続済み＝待つのは鍵生成の時間だけになる
-    //  （接続待ちが混ざると「何を待っているのか」がトレースで曖昧になる）。
-    //  ViewModel は Activity スコープなので、bind の寿命は VM ではなくコンポジションに合わせる。
-    DisposableEffect(viewModel) {
-        viewModel.bindVault()
-        onDispose { viewModel.unbindVault() }
-    }
     SettingsContent(
         modifier = modifier,
         state = state,
         onMaster = viewModel::setMaster,
         onAnr = viewModel::setAnr,
-        encryptFocusRecords = encryptFocusRecords,
-        onEncryptFocusRecords = viewModel::setEncryptFocusRecords,
         onDismissRestartPrompt = viewModel::dismissRestartPrompt,
         onConfirmRestart = {
             viewModel.confirmRestartPrompt()
@@ -91,52 +79,12 @@ fun SettingsContent(
     onConfirmRestart: () -> Unit = {},
     strictModeBannerMuted: Boolean = false,
     onStrictModeBannerMuted: (Boolean) -> Unit = {},
-    encryptFocusRecords: Boolean = false,
-    onEncryptFocusRecords: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = modifier
             .padding(horizontal = 20.dp, vertical = 24.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        // セキュリティ（一般設定。demoMode の節より前に置く＝普通のアプリの普通の設定）
-        Text(
-            text = stringResource(R.string.settings_security_section_title),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SectionCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_encrypt_records_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_encrypt_records_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Switch(
-                    checked = encryptFocusRecords,
-                    onCheckedChange = onEncryptFocusRecords,
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
         // マスタースイッチ
         SectionCard {
             Row(

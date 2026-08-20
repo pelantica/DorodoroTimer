@@ -9,7 +9,6 @@ import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.debug.DemoFlags
 import com.pelantica.dorodorotimer.data.local.datastore.DataStorePomodoroPresetRepository
-import com.pelantica.dorodorotimer.data.local.datastore.DataStoreSecuritySettingsRepository
 import com.pelantica.dorodorotimer.data.local.datastore.DataStoreTimerStateRepository
 import com.pelantica.dorodorotimer.data.local.room.AppDatabase
 import com.pelantica.dorodorotimer.data.local.room.RoomFocusSessionRecorder
@@ -18,7 +17,6 @@ import com.pelantica.dorodorotimer.data.local.stats.OffloadedStatsRepository
 import com.pelantica.dorodorotimer.data.local.stats.RawSqliteStatsHelper
 import com.pelantica.dorodorotimer.domain.repository.FocusSessionRecorder
 import com.pelantica.dorodorotimer.domain.repository.PomodoroPresetRepository
-import com.pelantica.dorodorotimer.domain.repository.SecuritySettingsRepository
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
 import com.pelantica.dorodorotimer.domain.repository.TimerStateRepository
 import com.pelantica.dorodorotimer.feature.settings.SettingsViewModel
@@ -28,8 +26,6 @@ import com.pelantica.dorodorotimer.service.AmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidAmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidTimerScheduler
 import com.pelantica.dorodorotimer.service.TimerScheduler
-import com.pelantica.dorodorotimer.vendor.securevault.SecureVault
-import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -85,16 +81,8 @@ val appModule = module {
         }
     }
 
-    single<SecuritySettingsRepository> { DataStoreSecuritySettingsRepository(get()) }
-
-    // [ANR-04] 「外部SDK風」の鍵庫クライアント。接続の張り直しを避けるため single。
-    //  実際に bind/unbind するのは設定画面が見えている間だけ（SettingsScreen の DisposableEffect）。
-    //  ANR-04 の分岐は「どのスレッドで待つか」という局所操作なので、DI で実装を差し替えるのではなく
-    //  呼び出し箇所（SettingsViewModel）のローカル if にしている（規約の「原因の粒度」に対応）。
-    single<SecureVault> { SecureVaultClient(androidContext()) }
-
     viewModel { TimerViewModel(get(), get(), get(), get(), get()) }
-    viewModel { SettingsViewModel(get(), get(), get()) }
+    viewModel { SettingsViewModel(get()) }
     // realRepo は実データ専用の読み口。ANR-01 の差し替え対象（demoRepo）とは独立に、
     // 常に安全な Room 経路＝シードを投入しない OffloadedStatsRepository を渡す。
     // demoRepo と realRepo は同じ型なので、取り違え防止に名前付き引数で渡す。

@@ -1,75 +1,18 @@
 package com.pelantica.dorodorotimer.feature.settings
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.pelantica.dorodorotimer.core.debug.Anr
-import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.debug.DemoFlags
 import com.pelantica.dorodorotimer.core.debug.DemoFlagsState
 import com.pelantica.dorodorotimer.core.report.CrashReportBreadcrumbs
-import com.pelantica.dorodorotimer.domain.repository.SecuritySettingsRepository
-import com.pelantica.dorodorotimer.vendor.securevault.SecureVault
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-class SettingsViewModel(
-    private val flags: DemoFlags,
-    private val securitySettings: SecuritySettingsRepository,
-    private val vault: SecureVault,
-) : ViewModel() {
+class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
 
     private val _state = MutableStateFlow(flags.snapshot())
     val state: StateFlow<DemoFlagsState> = _state.asStateFlow()
-
-    private val _encryptFocusRecords = MutableStateFlow(false)
-    /** 「集中記録を暗号化」トグルの表示状態。永続値の読み込み前は既定の false。 */
-    val encryptFocusRecords: StateFlow<Boolean> = _encryptFocusRecords.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            _encryptFocusRecords.value = securitySettings.isEncryptFocusRecordsEnabled()
-        }
-    }
-
-    /**
-     * 鍵庫（別プロセス）への接続を開始する。設定画面が表示されている間だけ繋ぐ
-     * （呼び出しは [SettingsScreen] の DisposableEffect）。
-     */
-    fun bindVault() = vault.bind()
-
-    /** 鍵庫への接続を切る。 */
-    fun unbindVault() = vault.unbind()
-
-    /**
-     * 「集中記録を暗号化」トグルの操作。OFF → ON になったときだけ鍵を生成する。
-     *
-     * トグルの状態は鍵生成の結果を待たずに即座に反映・保存する（正版の UI は固まらない）。
-     * ANR-04 が ON のときだけ、鍵生成の待ち方がメインスレッドに変わる。
-     */
-    fun setEncryptFocusRecords(enabled: Boolean) {
-        val wasEnabled = _encryptFocusRecords.value
-        _encryptFocusRecords.value = enabled
-        viewModelScope.launch { securitySettings.setEncryptFocusRecordsEnabled(enabled) }
-        if (!enabled || wasEnabled) return
-
-        if (DemoConfig.isOn(Anr.ANR_04)) {
-            // [ANR-04] 鍵生成をメインスレッドで同期待ちする。Binder の向こう（セキュアHWの代役）が
-            //  返すまで main は transact で止まる＝waiting(binder)。呼び出しはこの1行で、
-            //  重い処理は自分のコードに1行も無い（トレースにも自分のコードはここしか出ない）。
-            //  処方は下の else 側＝withContext(IO)。相手を速くする手段はアプリ側に無いので、
-            //  「速くする」のではなく「待ち方を変える」しかない。詳細は SecureVaultClient の KDoc。
-            vault.generateKeyBlocking()
-        } else {
-            // 正版: 待つのはワーカー。メインは即座に描き続ける（トグルはもう ON になっている）。
-            viewModelScope.launch {
-                withContext(Dispatchers.IO) { vault.generateKeyBlocking() }
-            }
-        }
-    }
 
     /**
      * マスタートグルを切り替える。

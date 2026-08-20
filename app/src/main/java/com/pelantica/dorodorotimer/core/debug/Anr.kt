@@ -27,11 +27,11 @@ enum class Anr(val requiresRestart: Boolean) {
     ANR_03(requiresRestart = true),
 
     /**
-     * 設定画面で「集中記録を暗号化」を ON にした瞬間に読む（鍵生成を待つスレッドの選択）。
-     * 相手（`:vault` プロセスの鍵庫）は画面表示中に bind 済みなので、トグルのたびに
-     * フラグを読むだけで完結する。再起動不要。
+     * Application.onCreate 内で読む（起動時に鍵庫から鍵を同期ロードするかの選択）。
+     * onCreate は起動時に一度しか走らないため、トグルの効果は次のプロセス起動から
+     * ＝再起動が必要。
      */
-    ANR_04(requiresRestart = false),
+    ANR_04(requiresRestart = true),
 
     /**
      * 背面起動ブースト（Application.onCreate 内で読む）。ON のとき onCreate は2つのことをする:

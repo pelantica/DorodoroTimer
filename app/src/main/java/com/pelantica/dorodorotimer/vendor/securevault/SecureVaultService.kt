@@ -15,7 +15,7 @@ import android.os.IBinder
  * 本物の Keystore なら、この向こう側は `keystore2` システムサービス → KeyMint HAL →
  * TEE/StrongBox という長い道のりで、アプリからは「速くする手段が一切ない」。
  * デモとして決定的に再現するために、その「遅い相手」を自前で用意している
- * （＝Binder の両端を自分で持つ）。構図と処方の全体像は [SecureVaultClient] の KDoc を参照。
+ * （＝Binder の両端を自分で持つ）。構図と処方の全体像は [SecureVaultBootLoader] の KDoc を参照。
  *
  * Manifest では `android:exported="false"`。同一 UID の自プロセスからしか bind しないので
  * 公開する必要がない。
@@ -32,12 +32,13 @@ class SecureVaultService : Service() {
     companion object {
 
         /**
-         * 鍵生成1回にかける時間（ミリ秒）。入力ディスパッチの締切5秒を超えるだけでは足りず、
-         * **ANR ダイアログが出てから「アプリを閉じる」を押し切るまで**凍結を保つ必要がある
-         * （復帰すると ANR ダイアログは自動で消える）。初版 10 秒では操作猶予が約4秒しか
-         * 残らなかったため 20 秒へ再校正した。実測は [SecureVaultClient] の KDoc。
+         * 鍵生成1回にかける時間（ミリ秒）。起動時の鍵ロード（[SecureVaultBootLoader]）で使う。
+         * bindApplication の番犬（15秒 × `ro.hw_timeout_multiplier`）より**必ず長く**して、
+         * 自己回復させず必ず kill させる（AEI に `reason=ANR` を残し、次回起動で Crashlytics
+         * が回収する）。実際の凍結は番犬が先に切るので、端末（multiplier=1）では実測 約15秒で
+         * 打ち切られる——この値そのものまでは凍結しない。
          */
-        const val KEYGEN_WORK_MILLIS = 20_000L
+        const val KEYGEN_WORK_MILLIS = 60_000L
 
         /** alias 未指定時に使う既定の鍵名。 */
         const val DEFAULT_ALIAS = "dorodoro-focus-records"

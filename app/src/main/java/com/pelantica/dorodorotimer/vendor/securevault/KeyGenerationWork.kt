@@ -3,40 +3,39 @@ package com.pelantica.dorodorotimer.vendor.securevault
 import java.security.MessageDigest
 
 /**
- * [ANR-04] 「鍵生成」の中身。`digest = SHA256(digest)` を **[workMillis] が経過するまで** 回す。
+ * [ANR-04] 「鍵生成」の中身。指紋（alias の SHA-256）を1回だけ計算し、あとは [workMillis]
+ * が経過するまで **待つ**（呼び出し側 = main を確実に待たせるのが目的）。
  *
- * 本物の Keystore の鍵生成（RSA/EC の鍵ペア生成、TEE / StrongBox 上のエントロピー収集）は
- * 端末によって数百ミリ秒〜十数秒かかる。狙って遅くはできないので、ここでは
- * **時間基準の実CPU作業**で代役を務める（`Thread.sleep` にしないのは
- * [com.pelantica.dorodorotimer.data.local.stats.StatsStore] と同じ理由＝相手が本当に
- * 働いていることをトレース上でも見せるため）。
+ * 本物の Keystore の鍵生成（RSA/EC 鍵ペア生成、TEE / StrongBox でのエントロピー収集）は
+ * 端末によって数百ミリ秒〜十数秒かかる。狙って遅くはできないので、ここでは時間だけを再現する。
  *
- * ラウンド数ではなく時間を基準にするのは、この事例で意味があるのが「何回計算したか」ではなく
- * 「呼び出し側を何秒待たせたか」だから（端末が速くても待ち時間は変わらない＝校正が要らない）。
+ * `Thread.sleep` で「待つ」ことにしているのは、この事例で意味があるのが
+ * 「相手プロセスが CPU を焼くこと」ではなく「呼び出し側 main を何秒ブロックするか」だから。
+ * 実際 ANR トレースに写るのは待たされている main だけで、相手プロセス（`:vault`）側の
+ * スタックは ANR トレースに含まれない（＝CPU を焼いても観測されない）。むしろ焼くと、
+ * onCreate 発火版では main が番犬に kill された後も `:vault` が回り続け、
+ * `EXCESSIVE_CPU` で余計な kill 記録（ApplicationExitInfo）を残してしまう。
  *
- * Android 依存ゼロの純 Kotlin なので、[SecureVaultService] を起こさずユニットテストできる。
+ * 本物の Keystore 側も CPU を焼いているわけではなく TEE/HW の応答待ちなので、待ちで再現する方が
+ * 構図としても近い。Android 依存ゼロの純 Kotlin なので、[SecureVaultService] を起こさずテストできる。
  */
 internal object KeyGenerationWork {
 
     /**
-     * 時間基準ループが経過時間を確認する間隔（ハッシュのラウンド数）。
-     * 毎ラウンド [System.nanoTime] を読むと計時のコストが支配的になるので、この単位でまとめて回す。
-     */
-    private const val ROUNDS_PER_TIME_CHECK = 512
-
-    /**
-     * [alias] を種にした鍵素材を [workMillis] ミリ秒以上かけて導出し、hex 文字列で返す。
+     * [alias] を種にした鍵素材の指紋を返す。呼び出しスレッドを [workMillis] ミリ秒ぶん待たせる。
      *
-     * 時間源は [System.nanoTime]（単調・素の JVM で動くのでユニットテストからも使える。
-     * `android.os.SystemClock` は Robolectric なしのユニットテストでは動かない）。
+     * 指紋は `SHA-256(alias)` を1回。待ち時間は [Thread.sleep]（相手プロセスの CPU を消費しない）。
      */
     fun deriveKeyMaterial(alias: String, workMillis: Long): String {
         val md = MessageDigest.getInstance("SHA-256")
-        // 空 alias でも空文字を返さないよう、必ず1回はダイジェストを通す。
-        var digest = md.digest(alias.toByteArray())
-        val deadline = System.nanoTime() + workMillis * 1_000_000L
-        while (System.nanoTime() < deadline) {
-            repeat(ROUNDS_PER_TIME_CHECK) { digest = md.digest(digest) }
+        val digest = md.digest(alias.toByteArray())
+        if (workMillis > 0) {
+            try {
+                Thread.sleep(workMillis)
+            } catch (e: InterruptedException) {
+                // 待ちを中断されたら素直に諦める（割り込みフラグは立て直す）。
+                Thread.currentThread().interrupt()
+            }
         }
         return digest.toHexString()
     }

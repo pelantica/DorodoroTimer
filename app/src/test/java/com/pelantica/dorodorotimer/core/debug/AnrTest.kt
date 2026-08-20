@@ -17,7 +17,7 @@ class AnrTest {
             Anr.ANR_01 to true,
             Anr.ANR_02 to true,
             Anr.ANR_03 to true,
-            Anr.ANR_04 to false,
+            Anr.ANR_04 to true,
             Anr.ANR_05 to true,
             Anr.ANR_06 to false,
             Anr.ANR_07 to true,

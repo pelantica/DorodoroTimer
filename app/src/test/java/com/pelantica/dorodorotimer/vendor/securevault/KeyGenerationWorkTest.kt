@@ -9,7 +9,7 @@ import org.junit.Test
  * [KeyGenerationWork] のユニットテスト。検証するのは「鍵として正しいか」ではなく、
  * ANR-04 の前提＝**呼び出し側を指定時間ぶん確実に待たせること**。
  *
- * 本番の 10 秒（[SecureVaultService.KEYGEN_WORK_MILLIS]）ではなく [WORK_MILLIS] を注入して軽量に回す。
+ * 本番の値（[SecureVaultService.KEYGEN_WORK_MILLIS]）ではなく [WORK_MILLIS] を注入して軽量に回す。
  * Binder / Service には触らない（Android 依存はユニットテストの対象外）。
  */
 class KeyGenerationWorkTest {
@@ -51,7 +51,7 @@ class KeyGenerationWorkTest {
     }
 
     private companion object {
-        /** テスト用の作業時間。本番の 10 秒は長すぎるので短縮する。 */
+        /** テスト用の待ち時間。本番の値は長すぎるので短縮する。 */
         const val WORK_MILLIS = 200L
 
         const val ALIAS = "dorodoro-test"
