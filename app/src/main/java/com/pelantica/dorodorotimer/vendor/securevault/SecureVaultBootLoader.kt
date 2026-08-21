@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicReference
  * ## なぜ onCreate なのか（Crashlytics 回収）
  * メインが onCreate で長く待つと bindApplication の番犬（15 秒 × `ro.hw_timeout_multiplier`）が
  * ダイアログなしで無言 kill する。鍵生成は番犬より長く設定してあるので必ず返る前に殺され、
- * AEI に `reason=ANR / subreason=34` が残る＝次回起動で Crashlytics が回収する。
+ * AEI に `reason=ANR` が残る（subreason はエミュ=34 BIND_APPLICATION／実機 HyperOS では 0 のことも）
+ * ＝次回起動で Crashlytics が回収する。
  */
 internal object SecureVaultBootLoader {
 
