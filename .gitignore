@@ -9,3 +9,8 @@ build/
 .externalNativeBuild
 .cxx
 local.properties
+
+# リリース署名の秘密（鍵本体はリポジトリ外の ~/keystores/、パスワードはここ）。絶対にコミットしない。
+keystore.properties
+*.jks
+*.keystore
