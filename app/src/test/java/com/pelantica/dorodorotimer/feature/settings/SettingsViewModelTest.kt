@@ -1,6 +1,7 @@
 package com.pelantica.dorodorotimer.feature.settings
 
 import com.pelantica.dorodorotimer.core.debug.Anr
+import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.core.debug.DemoFlags
 import com.pelantica.dorodorotimer.core.debug.DemoFlagsState
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +32,19 @@ class SettingsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
-    @After fun tearDown() = Dispatchers.resetMain()
+
+    @After fun tearDown() {
+        Dispatchers.resetMain()
+        // DemoConfig はプロセス内シングルトン。テスト間にフラグを持ち越さない。
+        DemoConfig.setFlagsForTest(null)
+    }
+
+    private fun viewModelWith(flags: DemoFlags) = SettingsViewModel(flags)
 
     @Test
     fun setMaster_true_stateMasterBecomesTrue() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = false)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertFalse(vm.state.value.master)
         vm.setMaster(true)
         assertTrue(vm.state.value.master)
@@ -45,7 +53,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_true_statePerAnrUpdated() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertFalse(vm.state.value.perAnr[Anr.ANR_01] ?: false)
         vm.setAnr(Anr.ANR_01, true)
         assertTrue(vm.state.value.perAnr[Anr.ANR_01] ?: false)
@@ -54,7 +62,7 @@ class SettingsViewModelTest {
     @Test
     fun setMaster_false_stateMasterBecomesFalse() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertTrue(vm.state.value.master)
         vm.setMaster(false)
         assertFalse(vm.state.value.master)
@@ -63,7 +71,7 @@ class SettingsViewModelTest {
     @Test
     fun initialState_reflectsFlags() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true).also { it.setOn(Anr.ANR_02, true) }
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertEquals(true, vm.state.value.master)
         assertEquals(true, vm.state.value.perAnr[Anr.ANR_02])
     }
@@ -71,7 +79,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_requiresRestartAnr_setsRestartPromptFor() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertEquals(null, vm.state.value.restartPromptFor)
 
         vm.setAnr(Anr.ANR_02, true)
@@ -85,7 +93,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_nonRestartAnr_doesNotSetRestartPromptFor() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
 
         vm.setAnr(Anr.ANR_06, true)
 
@@ -96,7 +104,7 @@ class SettingsViewModelTest {
     @Test
     fun dismissRestartPrompt_clearsRestartPromptFor() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         vm.setAnr(Anr.ANR_07, true)
         assertEquals(Anr.ANR_07, vm.state.value.restartPromptFor)
 
@@ -108,7 +116,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_requiresRestartAnr_thenDismiss_revertsFlagAndToggle() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         assertEquals(false, fake.isOn(Anr.ANR_02))
 
         vm.setAnr(Anr.ANR_02, true)
@@ -126,7 +134,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_requiresRestartAnr_thenConfirmRestart_keepsFlagAndToggle() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
 
         vm.setAnr(Anr.ANR_02, true)
         vm.confirmRestartPrompt()
@@ -140,7 +148,7 @@ class SettingsViewModelTest {
     @Test
     fun setMaster_false_clearsAllPerAnrToggles() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         Anr.entries.forEach { vm.setAnr(it, true) }
         Anr.entries.forEach { assertTrue(it.name, fake.isOn(it)) }
 
@@ -156,7 +164,7 @@ class SettingsViewModelTest {
     @Test
     fun setMaster_false_clearsBothRestartAndNonRestartAnrs() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         // requiresRestart が true の事例と false の事例を混在させる
         vm.setAnr(Anr.ANR_02, true)
         vm.setAnr(Anr.ANR_06, true)
@@ -174,7 +182,7 @@ class SettingsViewModelTest {
     @Test
     fun setMaster_false_doesNotSetRestartPromptFor() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
         vm.setAnr(Anr.ANR_02, true)
         vm.confirmRestartPrompt()
         assertEquals(null, vm.state.value.restartPromptFor)
@@ -191,7 +199,7 @@ class SettingsViewModelTest {
             it.setOn(Anr.ANR_02, true)
             it.setOn(Anr.ANR_06, true)
         }
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
 
         vm.setMaster(true)
 
@@ -205,7 +213,7 @@ class SettingsViewModelTest {
     @Test
     fun setAnr_nonRequiresRestartAnr_dismissRestartPrompt_doesNotAffectFlag() = runTest(dispatcher) {
         val fake = FakeDemoFlags(master = true)
-        val vm = SettingsViewModel(fake)
+        val vm = viewModelWith(fake)
 
         // requiresRestart == false なのでダイアログは出ず、restartPromptFor は null のまま
         vm.setAnr(Anr.ANR_06, true)
@@ -218,5 +226,11 @@ class SettingsViewModelTest {
         assertTrue(fake.isOn(Anr.ANR_06))
         assertTrue(vm.state.value.perAnr[Anr.ANR_06] ?: false)
         assertEquals(null, vm.state.value.restartPromptFor)
+    }
+
+    @Test
+    fun anr04_requiresRestart() {
+        // [ANR-04] 起動時（onCreate）にしか配線されない系＝再起動しないと反映されない。
+        assertTrue(Anr.ANR_04.requiresRestart)
     }
 }

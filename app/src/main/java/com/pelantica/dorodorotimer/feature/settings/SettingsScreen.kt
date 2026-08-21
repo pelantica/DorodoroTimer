@@ -37,6 +37,7 @@ private fun Anr.labelRes(): Int = when (this) {
     Anr.ANR_01 -> R.string.settings_anr_01_label
     Anr.ANR_02 -> R.string.settings_anr_02_label
     Anr.ANR_03 -> R.string.settings_anr_03_label
+    Anr.ANR_04 -> R.string.settings_anr_04_label
     Anr.ANR_05 -> R.string.settings_anr_05_label
     Anr.ANR_06 -> R.string.settings_anr_06_label
     Anr.ANR_07 -> R.string.settings_anr_07_label

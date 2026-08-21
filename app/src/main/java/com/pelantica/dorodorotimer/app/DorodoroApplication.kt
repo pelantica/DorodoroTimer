@@ -12,6 +12,7 @@ import com.pelantica.dorodorotimer.core.debug.StrictModeInstaller
 import com.pelantica.dorodorotimer.data.local.stats.StatsStore
 import com.pelantica.dorodorotimer.di.appModule
 import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
+import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultBootLoader
 import kotlin.concurrent.thread
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
@@ -19,6 +20,10 @@ import org.koin.core.context.startKoin
 class DorodoroApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Application.onCreate は**プロセスごとに**走る。[ANR-04] の鍵庫を :vault プロセスに
+        // 置いたので、以下の初期化一式（Koin・StrictMode・起動時の仕掛け）を素通りさせないと
+        // 別プロセスでも丸ごと再実行されてしまう。理由の詳細は AppProcess の KDoc。
+        if (!AppProcess.isMainProcess(this)) return
         // demoMode とは無関係に、デバッグビルドでは常にメインスレッドのI/Oを見張る。
         // onCreate の先頭に置くのは、直後の DemoConfig.init（SharedPreferences の読み込み）
         // も観測対象に含めるため。SharedPreferences の実際の読み込みは別スレッドで走るが、
@@ -56,6 +61,16 @@ class DorodoroApplication : Application() {
             //  ディープリンクで統計画面まで来たメインが monitor 待ちで凍る（waiting系）。
             //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
             thread(name = "stats-store-warmup") { StatsStore.warmUp() }
+        }
+        if (DemoConfig.isOn(Anr.ANR_04) && !StartupOrigin.lastExitWasAnr(this)) {
+            // [ANR-04] 起動時、保存済み集中記録を復号するため鍵庫(:vault)から鍵を同期取得する。
+            //  鍵操作は本物の Keystore と同じ同期 Binder IPC。返事をメインで待ち込むので onCreate が
+            //  固まり、bindApplication の番犬(15秒)がダイアログなしで無言 kill する（waiting/binder）。
+            //  痕跡は AEI(reason=ANR。subreason はエミュ=34 BIND_APPLICATION／実機HyperOSでは0のことも)
+            //  ＝次回起動で Crashlytics が回収（ANR-05 と同経路）。
+            //  安全弁: 直前が ANR 死なら今回は待たない（再起動で必ず抜けられる＝文鎮化防止）。
+            //  処方: 起動クリティカルパスで鍵を同期取得しない。バックグラウンドで先読みし UI は即応答。
+            SecureVaultBootLoader.loadKeyBlocking(this)
         }
         // [ANR-05] 「誰に起こされたか」は下の2か所で使うので一度だけ問い合わせる
         //  （Binder 往復を二重にしない。トグル OFF なら問い合わせ自体を行わない）。

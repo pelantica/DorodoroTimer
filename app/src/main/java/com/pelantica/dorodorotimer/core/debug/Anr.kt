@@ -27,6 +27,13 @@ enum class Anr(val requiresRestart: Boolean) {
     ANR_03(requiresRestart = true),
 
     /**
+     * Application.onCreate 内で読む（起動時に鍵庫から鍵を同期ロードするかの選択）。
+     * onCreate は起動時に一度しか走らないため、トグルの効果は次のプロセス起動から
+     * ＝再起動が必要。
+     */
+    ANR_04(requiresRestart = true),
+
+    /**
      * 背面起動ブースト（Application.onCreate 内で読む）。ON のとき onCreate は2つのことをする:
      *  1. ANRログ送信 Work を enqueue する＝**種蒔き**（死んだプロセスを後で起こす仕掛け）。
      *  2. その Work / アラームに**背面で起こされた起動**だったときだけ、

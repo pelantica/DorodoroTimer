@@ -68,6 +68,9 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // [ANR-04] 「外部SDK風の鍵庫」を別プロセスに置き、同期 Binder 呼び出しで待たせるため。
+        //  AGP 8 以降 aidl は既定 OFF なので明示的に有効化する。
+        aidl = true
     }
 }
 
