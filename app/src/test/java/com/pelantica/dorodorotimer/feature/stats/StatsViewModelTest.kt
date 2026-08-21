@@ -1,7 +1,9 @@
 package com.pelantica.dorodorotimer.feature.stats
 
+import android.content.Context
 import com.pelantica.dorodorotimer.domain.model.DailyStat
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
+import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -14,6 +16,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 private class FakeStatsRepository(
     var stats: List<DailyStat> = emptyList(),
@@ -26,8 +32,26 @@ private class FakeStatsRepository(
     }
 }
 
+/**
+ * [SecureVaultKeyProvider] のフェイク。実 IPC には一切触れず、呼ばれた回数だけ数える。
+ * `:vault` を bind しないので、ANR-04 の正版（メイン外・キャッシュ・遅延ロード）の
+ * 配線先として StatsViewModel が「別 launch で呼ぶだけで統計描画を待たせない」ことを検証できる。
+ */
+private class FakeSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider(context) {
+    var callCount = 0
+        private set
+
+    override suspend fun ensureKeyLoaded(): String? {
+        callCount++
+        return "fake-fingerprint"
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class StatsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
+    private val context: Context get() = RuntimeEnvironment.getApplication()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
@@ -36,7 +60,8 @@ class StatsViewModelTest {
         demoRepo: FakeStatsRepository = FakeStatsRepository(),
         realRepo: FakeStatsRepository = FakeStatsRepository(),
         isDemoMode: Boolean = false,
-    ) = StatsViewModel(demoRepo, realRepo, { isDemoMode })
+        vaultKey: FakeSecureVaultKeyProvider = FakeSecureVaultKeyProvider(context),
+    ) = StatsViewModel(demoRepo, realRepo, { isDemoMode }, vaultKey)
 
     @Test
     fun beforeReload_realSectionStartsLoading() = runTest(dispatcher) {
@@ -155,5 +180,23 @@ class StatsViewModelTest {
         viewModel.reload()
         testScheduler.runCurrent()
         assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
+    }
+
+    @Test
+    fun reload_loadsVaultKeyInSeparateLaunch_withoutBlockingRealStats() = runTest(dispatcher) {
+        // [ANR-04][正版] 鍵ロードは統計読み込みとは別 launch。実データの反映は
+        // 鍵ロードの完了を待たない（= UI をブロックしない）ことを確認する。
+        val vaultKey = FakeSecureVaultKeyProvider(context)
+        val realRepo = FakeStatsRepository(
+            listOf(DailyStat(dateEpochDay = 5L, focusCount = 2, totalFocusSeconds = 100))
+        )
+        val viewModel = vm(realRepo = realRepo, vaultKey = vaultKey)
+
+        viewModel.reload()
+        testScheduler.runCurrent()
+
+        assertFalse(viewModel.uiState.value.isRealLoading)
+        assertEquals(realRepo.stats, viewModel.uiState.value.realStats)
+        assertEquals(1, vaultKey.callCount)
     }
 }

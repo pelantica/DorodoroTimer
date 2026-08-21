@@ -26,6 +26,7 @@ import com.pelantica.dorodorotimer.service.AmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidAmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidTimerScheduler
 import com.pelantica.dorodorotimer.service.TimerScheduler
+import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -63,6 +64,11 @@ val appModule = module {
     // [ANR-01] 生SQLite（「守ってくれない」側）ヘルパー。SQLDelight が AGP9 未対応のため生SQLiteで代替。
     single { RawSqliteStatsHelper(androidContext()) }
 
+    // [ANR-04][正版] 集中記録を復号する鍵庫の鍵を、遅延・背面・キャッシュで供給するクライアント。
+    // ANR-04（SecureVaultBootLoader）が onCreate でメイン同期待ちするのと対照的に、
+    // 実際に鍵が要る StatsViewModel.reload から呼ばれる（DorodoroApplication.onCreate では触らない）。
+    single { SecureVaultKeyProvider(androidContext()) }
+
     // [ANR-01] demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
     //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
     //  原因が「実装まるごとの性質」なので DI で実装ごと差し替える（規約のDI-swapパターン）。
@@ -91,6 +97,7 @@ val appModule = module {
             demoRepo = get(),
             realRepo = OffloadedStatsRepository(get()),
             isDemoMode = { DemoConfig.enabled },
+            vaultKey = get(),
         )
     }
 }

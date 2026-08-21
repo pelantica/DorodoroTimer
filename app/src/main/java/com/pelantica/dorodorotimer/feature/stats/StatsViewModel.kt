@@ -3,6 +3,7 @@ package com.pelantica.dorodorotimer.feature.stats
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
+import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,11 +19,15 @@ import kotlinx.coroutines.launch
  *   - ANR-01 OFF: [OffloadedStatsRepository]（Room・IOへ逃げる）が注入され、安全に完了する。
  *   - ANR-01 ON: [BlockingStatsRepository]（生SQLite・同期実行）が注入され、
  *     viewModelScope（= Main）で走って ANR を誘発する。
+ *
+ * [vaultKey] は [ANR-04][正版]。集中記録を復号する鍵庫の鍵を、統計表示とは別 launch で
+ * 遅延・背面・キャッシュでロードする（[reload] 参照）。
  */
 class StatsViewModel(
     private val demoRepo: StatsRepository,
     private val realRepo: StatsRepository,
     private val isDemoMode: () -> Boolean,
+    private val vaultKey: SecureVaultKeyProvider,
 ) : ViewModel() {
 
     // 初期値の時点で demoMode を反映しておく。[reload] を待つと、最初の1フレームだけ
@@ -58,6 +63,15 @@ class StatsViewModel(
     fun reload() {
         val demoMode = isDemoMode()
         _uiState.value = _uiState.value.copy(isDemoMode = demoMode, isDemoLoading = demoMode)
+
+        // [ANR-04][正版] 集中記録を復号する鍵庫の鍵は、下の統計読み込みとは別の launch で
+        // 背面・キャッシュ・遅延ロードする。onCreate で同期に取る ANR-04（SecureVaultBootLoader）
+        // と対照的に、実際に必要になった時点（この画面を開いたとき）でだけ読みにいき、
+        // かつ統計の描画をここで待たせない（UI をブロックしない）。
+        viewModelScope.launch {
+            vaultKey.ensureKeyLoaded()
+        }
+
         viewModelScope.launch {
             val real = realRepo.dailyStats()
             if (!demoMode) {
