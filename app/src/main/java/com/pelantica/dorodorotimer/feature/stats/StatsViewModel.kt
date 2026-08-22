@@ -2,6 +2,8 @@ package com.pelantica.dorodorotimer.feature.stats
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pelantica.dorodorotimer.core.debug.Anr
+import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
 import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,8 +70,13 @@ class StatsViewModel(
         // 背面・キャッシュ・遅延ロードする。onCreate で同期に取る ANR-04（SecureVaultBootLoader）
         // と対照的に、実際に必要になった時点（この画面を開いたとき）でだけ読みにいき、
         // かつ統計の描画をここで待たせない（UI をブロックしない）。
-        viewModelScope.launch {
-            vaultKey.ensureKeyLoaded()
+        // ANR-04 を撃っているとき（ON）は onCreate 側が発火点なので、正版はここでは走らせない。
+        // OFF＝リリース通常時だけ、正しい取り方（別launch・背面・キャッシュ・遅延）で鍵を読む
+        // ＝同じトグルで ANR版（onCreate）と正版（ここ）が対になる。
+        if (!DemoConfig.isOn(Anr.ANR_04)) {
+            viewModelScope.launch {
+                vaultKey.ensureKeyLoaded()
+            }
         }
 
         viewModelScope.launch {
