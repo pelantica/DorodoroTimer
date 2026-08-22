@@ -18,6 +18,8 @@
     <string name="stats_loading">読み込み中…</string>
     <!-- デモ用シードの投入を伴うので数秒かかることを伝える -->
     <string name="stats_loading_demo">デモ用データを準備中…</string>
+    <!-- ANR-03 正版: StatsStore.readiness が false の間だけ出す非ブロッキングの案内 -->
+    <string name="stats_store_warming">統計ストアを準備中…</string>
     <string name="stats_empty">🌱 まだ記録がありません</string>
     <!-- demoMode ON のときだけ表示するセクション見出し -->
     <string name="stats_section_real">実データ</string>

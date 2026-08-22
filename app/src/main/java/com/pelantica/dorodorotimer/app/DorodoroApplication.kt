@@ -14,10 +14,17 @@ import com.pelantica.dorodorotimer.di.appModule
 import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
 import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyBootLoader
 import kotlin.concurrent.thread
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
 class DorodoroApplication : Application() {
+    /** アプリ全体の寿命を持つスコープ。[ANR-03][正版] の `warmUpReactive` 起動にだけ使う。 */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         // Application.onCreate は**プロセスごとに**走る。[ANR-04] の鍵庫を :vault プロセスに
@@ -61,6 +68,11 @@ class DorodoroApplication : Application() {
             //  ディープリンクで統計画面まで来たメインが monitor 待ちで凍る（waiting系）。
             //  スレッド名はトレースの `held by "stats-store-warmup"` に出る＝犯人の名札。
             thread(name = "stats-store-warmup") { StatsStore.warmUp() }
+        } else {
+            // [ANR-03][正版] アプリスコープで launch するだけ＝ onCreate は即返る。誰も待たない。
+            //  準備完了は StatsStore.readiness（StateFlow）で流れる。TODO(製品化): 25秒は
+            //  教材用の重り（本物の初期化はここまで長くならない想定）。
+            appScope.launch { StatsStore.warmUpReactive() }
         }
         if (DemoConfig.isOn(Anr.ANR_04) && !StartupOrigin.lastExitWasAnr(this)) {
             // [ANR-04] 起動時、保存済み集中記録を復号するため鍵庫(:vault)から鍵を同期取得する。

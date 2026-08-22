@@ -1,6 +1,11 @@
 package com.pelantica.dorodorotimer.data.local.stats
 
 import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /**
  * [ANR-03] 「最初に使う人が初期化コストを払う」遅延シングルトンの模型。ANR-03（waiting系）の現場。
@@ -149,6 +154,39 @@ internal object StatsStore {
     fun awaitReady(): Boolean = synchronized(this) { isInitialized }
 
     /**
+     * [ANR-03][正版] 準備完了を表す Flow。UI はこれを observe するだけで良い（[awaitReady] は呼ばない）。
+     * ON 経路と同じ「初期化済みか」を表すが、**流れてくる**側なので誰も待たない。
+     */
+    private val _readiness = MutableStateFlow(false)
+
+    /** [ANR-03][正版] [_readiness] の読み取り専用ビュー。Compose からは `collectAsState()` で observe する。 */
+    val readiness: StateFlow<Boolean> = _readiness.asStateFlow()
+
+    /**
+     * [ANR-03][正版] このクラスの KDoc「処方」を実装したもの。呼び出し側（Application）は
+     * `launch` するだけで**誰も待たない**。UI（StatsScreen）は [readiness] を observe して
+     * Loading → Ready を描くだけで、[awaitReady] のような同期アクセスは一切行わない。
+     *
+     * 処方どおり、重い初期化 [heavyInitWork] は `synchronized` の**外**（[Dispatchers.Default]）で
+     * 走らせる。ロックを取るのは結果を代入する一瞬だけ＝保持時間はミリ秒未満に落ちるので、
+     * 仮に他スレッドがここで monitor を取りに行っても事実上ブロックしない。
+     *
+     * @param minHoldMillis [heavyInitWork] が最低どれだけ回るか。既定は ON 版と同じ
+     *  [INIT_WORK_MILLIS]（25秒）だが、これは教材用の重り＝本物の初期化なら一瞬で終わる
+     *  はずのもの（TODO(製品化): 本物の統計ストア初期化に置き換える際はこの重りごと消す）。
+     */
+    suspend fun warmUpReactive(minHoldMillis: Long = INIT_WORK_MILLIS) {
+        if (_readiness.value) return
+        val result = withContext(Dispatchers.Default) { heavyInitWork(minHoldMillis) }
+        // [ANR-03][正版] ロック内は代入だけ＝保持時間をミリ秒未満に落とす（このクラスの KDoc「処方」）。
+        synchronized(this) {
+            initFingerprint = result
+            isInitialized = true
+        }
+        _readiness.value = true
+    }
+
+    /**
      * [ANR-03] 「重い初期化」の中身。`digest = SHA256(digest)` を **[minHoldMillis] が経過するまで**回す。
      *
      * `Thread.sleep` を使わないのは ANR-02 と同じ理由: 偽の重りではなく実際に CPU を焼く作業にすると、
@@ -173,9 +211,12 @@ internal object StatsStore {
      * **テスト専用**。`object` はプロセス内で状態を持ち越すため、テスト間で初期化済みフラグを戻す。
      * 本番コードから呼んではいけない。
      */
-    internal fun resetForTest() = synchronized(this) {
-        isInitialized = false
-        initFingerprint = null
+    internal fun resetForTest() {
+        synchronized(this) {
+            isInitialized = false
+            initFingerprint = null
+        }
+        _readiness.value = false
     }
 
     /** **テスト専用**。初期化の成果物が実際に残っているか（＝重い処理が走ったか）を確認するための覗き窓。 */
