@@ -28,9 +28,9 @@ import java.util.concurrent.atomic.AtomicReference
  * AEI に `reason=ANR` が残る（subreason はエミュ=34 BIND_APPLICATION／実機 HyperOS では 0 のことも）
  * ＝次回起動で Crashlytics が回収する。
  */
-internal object SecureVaultBootLoader {
+internal object SecureVaultKeyBootLoader {
 
-    private const val TAG = "SecureVaultBootLoader"
+    private const val TAG = "SecureVaultKeyBootLoader"
 
     /** 接続完了を待つ上限。ANR の待ち時間に上乗せしても無意味なので短く。 */
     private const val CONNECT_TIMEOUT_MILLIS = 5_000L

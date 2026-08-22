@@ -12,7 +12,7 @@ import com.pelantica.dorodorotimer.core.debug.StrictModeInstaller
 import com.pelantica.dorodorotimer.data.local.stats.StatsStore
 import com.pelantica.dorodorotimer.di.appModule
 import com.pelantica.dorodorotimer.service.work.AnrLogUploadScheduler
-import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultBootLoader
+import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyBootLoader
 import kotlin.concurrent.thread
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
@@ -70,7 +70,7 @@ class DorodoroApplication : Application() {
             //  ＝次回起動で Crashlytics が回収（ANR-05 と同経路）。
             //  安全弁: 直前が ANR 死なら今回は待たない（再起動で必ず抜けられる＝文鎮化防止）。
             //  処方: 起動クリティカルパスで鍵を同期取得しない。バックグラウンドで先読みし UI は即応答。
-            SecureVaultBootLoader.loadKeyBlocking(this)
+            SecureVaultKeyBootLoader.loadKeyBlocking(this)
         }
         // [ANR-05] 「誰に起こされたか」は下の2か所で使うので一度だけ問い合わせる
         //  （Binder 往復を二重にしない。トグル OFF なら問い合わせ自体を行わない）。

@@ -1,6 +1,5 @@
 package com.pelantica.dorodorotimer.feature.stats
 
-import android.content.Context
 import com.pelantica.dorodorotimer.domain.model.DailyStat
 import com.pelantica.dorodorotimer.domain.repository.StatsRepository
 import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
@@ -16,10 +15,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
 
 private class FakeStatsRepository(
     var stats: List<DailyStat> = emptyList(),
@@ -37,7 +32,7 @@ private class FakeStatsRepository(
  * `:vault` を bind しないので、ANR-04 の正版（メイン外・キャッシュ・遅延ロード）の
  * 配線先として StatsViewModel が「別 launch で呼ぶだけで統計描画を待たせない」ことを検証できる。
  */
-private class FakeSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider(context) {
+private class FakeSecureVaultKeyProvider : SecureVaultKeyProvider {
     var callCount = 0
         private set
 
@@ -47,11 +42,8 @@ private class FakeSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvi
     }
 }
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class StatsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
-    private val context: Context get() = RuntimeEnvironment.getApplication()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
     @After fun tearDown() = Dispatchers.resetMain()
@@ -60,7 +52,7 @@ class StatsViewModelTest {
         demoRepo: FakeStatsRepository = FakeStatsRepository(),
         realRepo: FakeStatsRepository = FakeStatsRepository(),
         isDemoMode: Boolean = false,
-        vaultKey: FakeSecureVaultKeyProvider = FakeSecureVaultKeyProvider(context),
+        vaultKey: FakeSecureVaultKeyProvider = FakeSecureVaultKeyProvider(),
     ) = StatsViewModel(demoRepo, realRepo, { isDemoMode }, vaultKey)
 
     @Test
@@ -186,7 +178,7 @@ class StatsViewModelTest {
     fun reload_loadsVaultKeyInSeparateLaunch_withoutBlockingRealStats() = runTest(dispatcher) {
         // [ANR-04][正版] 鍵ロードは統計読み込みとは別 launch。実データの反映は
         // 鍵ロードの完了を待たない（= UI をブロックしない）ことを確認する。
-        val vaultKey = FakeSecureVaultKeyProvider(context)
+        val vaultKey = FakeSecureVaultKeyProvider()
         val realRepo = FakeStatsRepository(
             listOf(DailyStat(dateEpochDay = 5L, focusCount = 2, totalFocusSeconds = 100))
         )

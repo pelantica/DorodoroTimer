@@ -26,6 +26,7 @@ import com.pelantica.dorodorotimer.service.AmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidAmbientSoundController
 import com.pelantica.dorodorotimer.service.AndroidTimerScheduler
 import com.pelantica.dorodorotimer.service.TimerScheduler
+import com.pelantica.dorodorotimer.vendor.securevault.CachingSecureVaultKeyProvider
 import com.pelantica.dorodorotimer.vendor.securevault.SecureVaultKeyProvider
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -65,9 +66,9 @@ val appModule = module {
     single { RawSqliteStatsHelper(androidContext()) }
 
     // [ANR-04][正版] 集中記録を復号する鍵庫の鍵を、遅延・背面・キャッシュで供給するクライアント。
-    // ANR-04（SecureVaultBootLoader）が onCreate でメイン同期待ちするのと対照的に、
+    // ANR-04（SecureVaultKeyBootLoader）が onCreate でメイン同期待ちするのと対照的に、
     // 実際に鍵が要る StatsViewModel.reload から呼ばれる（DorodoroApplication.onCreate では触らない）。
-    single { SecureVaultKeyProvider(androidContext()) }
+    single<SecureVaultKeyProvider> { CachingSecureVaultKeyProvider(androidContext()) }
 
     // [ANR-01] demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
     //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
