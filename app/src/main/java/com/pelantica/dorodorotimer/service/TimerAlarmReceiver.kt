@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.pelantica.dorodorotimer.core.debug.Anr
 import com.pelantica.dorodorotimer.core.debug.DemoConfig
 import com.pelantica.dorodorotimer.domain.model.TimerPhase
@@ -27,6 +28,20 @@ class TimerAlarmReceiver : BroadcastReceiver() {
         }
         val phase = intent.finishedPhaseOrDefault()
         TimerEndNotifications.notifyFinished(context, phase)
+        // [ANR-FGS] demoMode ON のとき、タイマー終了（ユーザーは別アプリにいる＝**背面**のことが多い）を
+        //  機に休憩用の雨音を自動起動する。この onReceive は setAlarmClock 由来なので、背面でも
+        //  FGS 起動が一時的に許可される（起動免除）。だが AmbientSoundService は startForeground の前に
+        //  重い処理を挟む（FgsStartupWork）ため、背面起動では猶予（ドキュメント5秒／実装約10秒）内に
+        //  startForeground できず ForegroundServiceDidNotStartInTimeException で kill される。
+        //  ＝前面ボタン起動（while-in-use 免除）では出ず、この背面自動起動でだけ発火するのが肝。
+        //  処方: startForeground を先に呼び、重い初期化は後（別スレッド）へ。
+        if (DemoConfig.isOn(Anr.ANR_FGS)) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AmbientSoundService::class.java)
+                    .setAction(AmbientSoundAction.PLAY),
+            )
+        }
     }
 
     /** extraが無い/不正なフォールバックは FOCUS 扱い（クラッシュさせない）。 */
