@@ -28,7 +28,7 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | ANR-05 | 背面起動 ANR（WorkManager / AlarmManager が起こす・ANR-02 連結） | busy | 起動（bind application 15秒） | `app/DorodoroApplication.kt:64`（分岐）/ `app/startup/StartupOrigin.kt:131`（背面判定）・`:173`（安全弁）/ `app/startup/UnsentReportIndexInitializer.kt:138`（+10.5秒）/ `service/work/AnrLogUploadScheduler.kt:47`（種蒔き） | ANR-02 と同じ「onCreate は予約だけ」＝ `StartupGate.runOnWorkerThread`。doWork 自体は軽量なまま（無罪） | 実装済み（実機E2E検証済み） |
 | ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt:22` / `service/ReceiverWork.kt:26` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
 | ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
-| ANR-FGS | ForegroundService の startForeground 5秒ルール | waiting | service | _未_（実体候補は `service/AmbientSoundService.kt`。現状 ANR フック無し） | 即 startForeground / 重い初期化を後へ | 未着手（CFP外・目玉候補） |
+| ANR-FGS | ForegroundService の startForeground 5秒ルール（背面起動でのみ発火） | waiting | service | `service/TimerAlarmReceiver.kt`（タイマー終了＝背面で雨音FGSを自動起動）/ `service/AmbientSoundService.kt:63`（startForeground 直前で分岐）/ `service/FgsStartupWork.kt`（時間基準で約12秒メインを焼く） | 即 startForeground を呼び、重い初期化は後（別スレッド）へ | 実装済み（CFP外・目玉候補。厳密には ForegroundServiceDidNotStartInTimeException＝クラッシュ。**前面(TOP)起動は while-in-use で締切免除、kill されるのは背面起動だけ**。ドキュメントは5秒だが実機の kill 猶予は約10秒＝12秒焼く） |
 
 **正版（ANR-04 の処方）**: `vendor/securevault/SecureVaultKeyProvider.kt`（マーカー `[ANR-04][正版]`）。
 `StatsViewModel.reload` から呼ばれ、鍵ロードを ①メイン外（`Dispatchers.IO`）②一度だけ生成してファイルキャッシュ
