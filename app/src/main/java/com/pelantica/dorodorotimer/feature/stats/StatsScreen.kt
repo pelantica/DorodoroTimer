@@ -71,7 +71,9 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
             if (!isStatsStoreReady) {
                 StatsStoreWarmingIndicator()
             }
-            StatsContent(modifier = Modifier.weight(1f), uiState = uiState)
+            // [ANR-03][正版] weight(1f) は高さだけを埋める。横は fillMaxWidth を足さないと
+            //  StatsContent の空状態 Box（contentAlignment=Center）が幅=内容のまま左寄せになる。
+            StatsContent(modifier = Modifier.fillMaxWidth().weight(1f), uiState = uiState)
         }
     }
 }
