@@ -23,7 +23,7 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | --- | --- | --- | --- | --- | --- | --- |
 | ANR-01 | メインスレッド I/O（生SQLite vs Room） | busy | input | `di/AppModule.kt:80`（DI差し替え）/ `data/local/stats/BlockingStatsRepository.kt:20` | Room の suspend DAO に任せる（守ってくれないライブラリは自前で `withContext(IO)`） | 実装済み |
 | ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt:37` / `app/startup/StartupGate.kt:58` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
-| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `data/local/stats/StatsStore.kt:120`（ロック保持）/ `app/DorodoroApplication.kt:62`（BGでウォームアップ）/ `feature/stats/StatsScreen.kt:53`（メインの同期アクセス） | メインから同期アクセスしない（suspend 化して `withContext` で待つ）/ 初期化とロック保持の分離（ロック内は代入だけ）/ シングルトン遅延評価の設計 | 実装済み（実機校正は登壇前TODO） |
+| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `data/local/stats/StatsStore.kt:137`（ロック保持）/ `app/DorodoroApplication.kt:70`（BGでウォームアップ）/ `feature/stats/StatsScreen.kt:55`（メインの同期アクセス） | メインから同期アクセスしない（suspend 化して `withContext` で待つ）/ 初期化とロック保持の分離（ロック内は代入だけ）/ シングルトン遅延評価の設計。**正版**: 準備状態を `StateFlow` で公開し UI は Loading→Ready を観測（メインは待たない）／排他が要るなら `synchronized` ではなく `Mutex.withLock`（suspend で凍らせない）。出典: [ANR ドキュメント](https://developer.android.com/topic/performance/vitals/anr) | 実装済み（実機校正は登壇前TODO） |
 | ANR-04 | Keystore 風の鍵生成（Binder + セキュアHW IPC） | waiting | 起動（bind application 15秒） | `app/DorodoroApplication.kt`（起動時に鍵庫から鍵を同期ロードする分岐）/ `vendor/securevault/SecureVaultKeyBootLoader.kt`（メインで transact する側）/ `vendor/securevault/SecureVaultService.kt`（`:vault` プロセスの待たせる側） | 起動クリティカルパス（onCreate）で鍵をメインスレッド同期取得しない。バックグラウンドで先読みし UI は即応答させる。相手はシステム／セキュアHWなので**速くする手段は無く、待ち方を変えるしかない** | 実装済み（正版込み） |
 | ANR-05 | 背面起動 ANR（WorkManager / AlarmManager が起こす・ANR-02 連結） | busy | 起動（bind application 15秒） | `app/DorodoroApplication.kt:64`（分岐）/ `app/startup/StartupOrigin.kt:131`（背面判定）・`:173`（安全弁）/ `app/startup/UnsentReportIndexInitializer.kt:138`（+10.5秒）/ `service/work/AnrLogUploadScheduler.kt:47`（種蒔き） | ANR-02 と同じ「onCreate は予約だけ」＝ `StartupGate.runOnWorkerThread`。doWork 自体は軽量なまま（無罪） | 実装済み（実機E2E検証済み） |
 | ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt:22` / `service/ReceiverWork.kt:26` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
@@ -33,6 +33,11 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 **正版（ANR-04 の処方）**: `vendor/securevault/SecureVaultKeyProvider.kt`（マーカー `[ANR-04][正版]`）。
 `StatsViewModel.reload` から呼ばれ、鍵ロードを ①メイン外（`Dispatchers.IO`）②一度だけ生成してファイルキャッシュ
 ③統計画面を開くまで遅延、の3点で onCreate 同期版と対比させている。
+
+**正版（ANR-03 の処方）**: `data/local/stats/StatsStore.kt` の `warmUpReactive` / `readiness`（マーカー `[ANR-03][正版]`）。
+`DorodoroApplication.onCreate` は `appScope.launch` で予約するだけで誰も待たず、重い初期化はロックの外
+（`Dispatchers.Default`）で回してロック内は代入だけにする。`StatsScreen` は `awaitReady()` を呼ばず
+`readiness`（`StateFlow`）を observe するだけで、準備中は画面を覆わず上に小さなインジケータを出す。
 
 ### ⚠️ ANR-01 は端末スペック依存（高性能端末では出ないことがある）
 

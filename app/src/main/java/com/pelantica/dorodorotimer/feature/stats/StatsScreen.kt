@@ -5,8 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -57,7 +59,47 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
     // 入り直すたびに再実行される。理由は StatsViewModel.reload の KDoc）。
     LaunchedEffect(Unit) { viewModel.reload() }
     val uiState by viewModel.uiState.collectAsState()
-    StatsContent(modifier = modifier, uiState = uiState)
+
+    if (DemoConfig.isOn(Anr.ANR_03)) {
+        StatsContent(modifier = modifier, uiState = uiState)
+    } else {
+        // [ANR-03][正版] awaitReady は呼ばない。readiness を observe するだけ＝main は待たない。
+        //  画面は即描画され、準備中は上に小さなインジケータが乗るだけ（内容は隠さない）。
+        //  準備できたら readiness が true になり、インジケータは自然に消える。
+        val isStatsStoreReady by StatsStore.readiness.collectAsState()
+        Column(modifier = modifier) {
+            if (!isStatsStoreReady) {
+                StatsStoreWarmingIndicator()
+            }
+            // [ANR-03][正版] weight(1f) は高さだけを埋める。横は fillMaxWidth を足さないと
+            //  StatsContent の空状態 Box（contentAlignment=Center）が幅=内容のまま左寄せになる。
+            StatsContent(modifier = Modifier.fillMaxWidth().weight(1f), uiState = uiState)
+        }
+    }
+}
+
+/**
+ * [ANR-03][正版] [StatsStore.readiness] が false の間だけ出す非ブロッキングの案内行。
+ * 画面全体を覆うスピナーにはしない（このアプリの方針。[StatsUiState] の KDoc参照）。
+ * 内容は今まで通り描画したまま、上に小さく乗るだけで、準備が済めば自然に消える。
+ */
+@Composable
+private fun StatsStoreWarmingIndicator(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+        Text(
+            text = stringResource(R.string.stats_store_warming),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
 }
 
 @Composable

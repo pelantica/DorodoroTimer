@@ -1,5 +1,6 @@
 package com.pelantica.dorodorotimer.data.local.stats
 
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -97,8 +98,54 @@ class StatsStoreTest {
         assertTrue("2回目は初期化済みで即返るはず（${elapsedMillis}ms）", elapsedMillis < HOLD_MILLIS / 2)
     }
 
+    // --- ここから [ANR-03][正版] warmUpReactive / readiness の検証 ---
+
+    @Test
+    fun warmUpReactive_setsReadinessTrue_withNegligibleHold() = runTest {
+        // minHoldMillis=0 で軽量に完了経路だけを見る（awaitReady 系と違い、ここは
+        // ロックの「効き方」ではなく「readiness が流れること」を検証するのが目的）。
+        assertFalse(StatsStore.readiness.value)
+
+        StatsStore.warmUpReactive(minHoldMillis = 0)
+
+        assertTrue(StatsStore.readiness.value)
+        // 正版は ON 版の isInitialized/awaitReady には触れない（monitor に触れない）。
+        // 成果物は @Volatile 側に載る＝重い処理が実際に走ったことの確認。
+        assertNotNull(StatsStore.reactiveFingerprintForTest())
+    }
+
+    @Test
+    fun warmUpReactive_isIdempotent_secondCallReturnsImmediately() = runTest {
+        StatsStore.warmUpReactive(minHoldMillis = HOLD_MILLIS)
+        assertTrue(StatsStore.readiness.value)
+
+        val startNanos = System.nanoTime()
+        StatsStore.warmUpReactive(minHoldMillis = HOLD_MILLIS)
+        val elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000
+
+        assertTrue("2回目は初期化済みで即返るはず（${elapsedMillis}ms）", elapsedMillis < HOLD_MILLIS / 2)
+    }
+
+    @Test
+    fun warmUpReactive_readinessFlipsOnlyAfterHeavyWorkCompletes() = runTest {
+        // 「準備中は false のまま→完了で true」を、他スレッドを覗き見るのではなく
+        // 「関数が返った時点で最低保持時間ぶん経過している」という事実で決定的に検証する
+        // （= 完了前に readiness=true が立つ経路が無いことの間接証拠）。
+        assertFalse(StatsStore.readiness.value)
+
+        val startNanos = System.nanoTime()
+        StatsStore.warmUpReactive(minHoldMillis = HOLD_MILLIS)
+        val elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000
+
+        assertTrue(
+            "readiness=true になったのは重い処理完了後のはず（${elapsedMillis}ms）",
+            elapsedMillis >= HOLD_MILLIS,
+        )
+        assertTrue(StatsStore.readiness.value)
+    }
+
     private companion object {
-        /** テスト用の保持時間。本番の [StatsStore.INIT_WORK_MILLIS]（12秒）は長すぎるので短縮する。 */
+        /** テスト用の保持時間。本番の [StatsStore.INIT_WORK_MILLIS]（25秒）は長すぎるので短縮する。 */
         const val HOLD_MILLIS = 300L
 
         /** ラッチ待ち・join のタイムアウト。ここに掛かるのは実装が壊れているときだけ。 */

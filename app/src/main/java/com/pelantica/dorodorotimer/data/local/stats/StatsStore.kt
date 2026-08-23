@@ -1,6 +1,11 @@
 package com.pelantica.dorodorotimer.data.local.stats
 
 import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /**
  * [ANR-03] 「最初に使う人が初期化コストを払う」遅延シングルトンの模型。ANR-03（waiting系）の現場。
@@ -149,6 +154,49 @@ internal object StatsStore {
     fun awaitReady(): Boolean = synchronized(this) { isInitialized }
 
     /**
+     * [ANR-03][正版] 準備完了を表す Flow。UI はこれを observe するだけで良い（[awaitReady] は呼ばない）。
+     * ON 経路と同じ「初期化済みか」を表すが、**流れてくる**側なので誰も待たない。
+     */
+    private val _readiness = MutableStateFlow(false)
+
+    /** [ANR-03][正版] [_readiness] の読み取り専用ビュー。Compose からは `collectAsState()` で observe する。 */
+    val readiness: StateFlow<Boolean> = _readiness.asStateFlow()
+
+    /**
+     * [ANR-03][正版] [warmUpReactive] の成果物の置き場。誰も読まないが、[heavyInitWork] の結果が
+     * デッドコードとして消えるのを防ぐために保持する（ON 版の [initFingerprint] と同じ考え方）。
+     * ON 版と違い `synchronized` を通さないので、可視性は `@Volatile` で単独に担保する。
+     */
+    @Volatile
+    private var reactiveFingerprint: ByteArray? = null
+
+    /**
+     * [ANR-03][正版] このクラスの KDoc「処方」を実装したもの。呼び出し側（Application）は
+     * `launch` するだけで**誰も待たない**。UI（StatsScreen）は [readiness] を observe して
+     * Loading → Ready を描くだけで、[awaitReady] のような同期アクセスは一切行わない。
+     *
+     * **自前ロックを持たない**（NIA 流）。ロック競合 ANR の教訓は「ロックを使うな」ではなく
+     * 「メインをロックで**待たせるな**」なので、必要な同期は捨てずに“ブロックしない仕組み”へ委譲する:
+     *  - 相互排他（初期化を1回だけ）: `synchronized` ではなく「Application.onCreate から**ただ1回**
+     *    launch する」という**構造**で保証する（[_readiness] での早期 return は二度呼びの冪等ガード）。
+     *  - メモリ可視性（結果の公開）: [_readiness] への書き込み（`StateFlow`＝内部は atomic）が observe 側へ
+     *    happens-before を張る。DCE 回避用の [reactiveFingerprint] は `@Volatile` で単独に公開する。
+     * ＝ ON 版（[warmUp]/[awaitReady] が `synchronized`）と違い、正版は monitor に一切触れない。
+     * 「ロックを消した」のではなく、待たせない仕組み（StateFlow・単一起動）へ**移した**のがポイント。
+     *
+     * 重い初期化 [heavyInitWork] は当然 [Dispatchers.Default] へ逃がす（メインは元から触れない）。
+     *
+     * @param minHoldMillis [heavyInitWork] が最低どれだけ回るか。既定は ON 版と同じ
+     *  [INIT_WORK_MILLIS]（25秒）だが、これは教材用の重り＝本物の初期化なら一瞬で終わる
+     *  はずのもの（TODO(製品化): 本物の統計ストア初期化に置き換える際はこの重りごと消す）。
+     */
+    suspend fun warmUpReactive(minHoldMillis: Long = INIT_WORK_MILLIS) {
+        if (_readiness.value) return
+        reactiveFingerprint = withContext(Dispatchers.Default) { heavyInitWork(minHoldMillis) }
+        _readiness.value = true
+    }
+
+    /**
      * [ANR-03] 「重い初期化」の中身。`digest = SHA256(digest)` を **[minHoldMillis] が経過するまで**回す。
      *
      * `Thread.sleep` を使わないのは ANR-02 と同じ理由: 偽の重りではなく実際に CPU を焼く作業にすると、
@@ -173,11 +221,18 @@ internal object StatsStore {
      * **テスト専用**。`object` はプロセス内で状態を持ち越すため、テスト間で初期化済みフラグを戻す。
      * 本番コードから呼んではいけない。
      */
-    internal fun resetForTest() = synchronized(this) {
-        isInitialized = false
-        initFingerprint = null
+    internal fun resetForTest() {
+        synchronized(this) {
+            isInitialized = false
+            initFingerprint = null
+        }
+        reactiveFingerprint = null
+        _readiness.value = false
     }
 
-    /** **テスト専用**。初期化の成果物が実際に残っているか（＝重い処理が走ったか）を確認するための覗き窓。 */
+    /** **テスト専用**。ON 版 [warmUp] の成果物（`synchronized` 越し）を覗く。 */
     internal fun fingerprintForTest(): ByteArray? = synchronized(this) { initFingerprint }
+
+    /** **テスト専用**。正版 [warmUpReactive] の成果物（`@Volatile`）を覗く。重い処理が走ったかの確認用。 */
+    internal fun reactiveFingerprintForTest(): ByteArray? = reactiveFingerprint
 }
