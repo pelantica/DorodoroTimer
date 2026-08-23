@@ -109,8 +109,9 @@ class StatsStoreTest {
         StatsStore.warmUpReactive(minHoldMillis = 0)
 
         assertTrue(StatsStore.readiness.value)
-        assertTrue(StatsStore.awaitReady())
-        assertNotNull(StatsStore.fingerprintForTest())
+        // 正版は ON 版の isInitialized/awaitReady には触れない（monitor に触れない）。
+        // 成果物は @Volatile 側に載る＝重い処理が実際に走ったことの確認。
+        assertNotNull(StatsStore.reactiveFingerprintForTest())
     }
 
     @Test
