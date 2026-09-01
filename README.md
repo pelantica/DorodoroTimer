@@ -33,7 +33,7 @@ DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発�
 | ANR-05 | 背面起動 ANR（WorkManager / AlarmManager が起こす・ANR-02 連結） | busy | 起動（bind application 15秒） | `app/DorodoroApplication.kt`（分岐）/ `app/startup/StartupOrigin.kt`（背面判定・安全弁）/ `app/startup/UnsentReportIndexInitializer.kt`（+10.5秒）/ `service/work/AnrLogUploadScheduler.kt`（種蒔き） | ANR-02 と同じ「onCreate は予約だけ」＝ `StartupGate.runOnWorkerThread`。doWork 自体は軽量なまま（無罪） | 実装済み（実機E2E検証済み） |
 | ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt` / `service/ReceiverWork.kt` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
 | ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
-| ANR-FGS | ForegroundService の startForeground 5秒ルール（背面起動でのみ発火） | waiting | service | `service/TimerAlarmReceiver.kt`（タイマー終了＝背面で雨音FGSを自動起動）/ `service/AmbientSoundService.kt`（startForeground 直前で分岐）/ `service/FgsStartupWork.kt`（時間基準で35秒メインを焼く） | 即 startForeground を呼び、重い初期化は後（別スレッド）へ | 実装済み（CFP外・目玉候補。厳密には ForegroundServiceDidNotStartInTimeException＝クラッシュ。**前面(TOP)起動は while-in-use で締切免除、kill されるのは背面起動だけ**。「5秒ルール」はアプリが守るべき契約の値で、実際に kill されるまでの猶予は端末依存（旧AOSPは約10秒／API37エミュレータは30秒）。どちらでも確実に超えるよう35秒焼く） |
+| ANR-FGS | ForegroundService の startForeground 猶予超過（前面はANRダイアログの後にkill、背面は無言kill） | waiting | service | `service/TimerAlarmReceiver.kt`（タイマー終了＝背面で雨音FGSを自動起動）/ `service/AmbientSoundService.kt`（startForeground 直前で分岐）/ `service/FgsStartupWork.kt`（時間基準で35秒メインを焼く） | 即 startForeground を呼び、重い初期化は後（別スレッド）へ | 実装済み（CFP外・目玉候補。厳密には ForegroundServiceDidNotStartInTimeException＝クラッシュ。「5秒ルール」はアプリが守るべき契約の値で、実際に kill されるまでの猶予はこれとは別物。**観測環境（AVD Pixel_10 / Android 17, API 37 エミュレータ・2026-09-01実測）では締切は前面/背面で共通**（`service_start_foreground_timeout_ms`=30秒）。~~前面は while-in-use で免除~~は誤りで、**前面は先に20秒でService実行ANR（ダイアログ付き）が出た後、30秒で同じ例外により kill**される。背面はANRダイアログを経由せず無言で kill され、痕跡は `data_app_crash` と AEI `reason=4 (APP CRASH)`。他のAPIレベル・実機では猶予やダイアログの有無が変わりうるため断定しない。35秒焼くのは前面・背面どちらの締切も確実に超えるため。再現手順は下の「ANR-FGS の再現手順」参照） |
 
 **正版（ANR-04 の処方）**: `vendor/securevault/SecureVaultKeyProvider.kt`（マーカー `[ANR-04][正版]`）。
 `StatsViewModel.reload` から呼ばれ、鍵ロードを ①メイン外（`Dispatchers.IO`）②一度だけ生成してファイルキャッシュ
@@ -76,6 +76,17 @@ adb shell dumpsys activity exit-info com.pelantica.dorodorotimer
 - **背面 ANR はダイアログを出さない**。`Killing ... (adj 0): bg anr` で無言 kill され、痕跡は ApplicationExitInfo（`reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)`。`anrInfo` が付く場合は `isUserPerceptible=false` も見える）と、次回起動時に Crashlytics が拾って送るレポートだけ。
 - 目覚ましの Work は**前面起動のときだけ**張り直す（`ExistingWorkPolicy.REPLACE`）。背面起動から同じ一意名を触ると自分を起こした Work を壊すため。ポリシーを3通り試して踏んだ失敗は `service/work/AnrLogUploadScheduler.kt` の KDoc に記録した。
 - 安全弁: 直前が ANR 死なら次の起動は重い初期化をスキップする（`StartupOrigin.lastExitWasAnr`）。再配送ループでの連続 ANR と、デモ機の文鎮化を防ぐ。**それでも開けなくなったら脱出は `adb shell pm clear com.pelantica.dorodorotimer`**（demoMode のフラグも消える）。
+
+### ANR-FGS の再現手順
+
+観測環境: AVD Pixel_10 / Android 17（API 37）エミュレータ・2026-09-01実測。他のAPIレベルや実機では猶予秒数・ダイアログの有無が変わりうる。
+
+設定画面で **master ON / ANR-FGS ON** にしたうえで:
+
+1. タイマー画面の時間表示をタップして集中時間を **0:40**（40秒）に設定する
+2. **「開始」**をタップした直後に **HOME キー**でアプリを背面へ退避する
+3. 40秒後にタイマー終了アラームが鳴り、`AmbientSoundService`（雨音FGS）が背面から起動される。そこから**35秒放置**すると `ForegroundServiceDidNotStartInTimeException` でクラッシュする（ANRダイアログは出ない無言 kill）
+4. **前面**から確認したい場合は、タイマー画面の **「🌧️ 雨音を鳴らす」** ボタンでも同じ例外が発生する。ただしこちらは**先に20秒でService実行ANR（ダイアログ付き）が出た後**にクラッシュする点が背面経路と異なる
 
 CFP（Call for Proposals＝登壇応募）外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は社内バックログに記録済み。採否は後日選定。
 
