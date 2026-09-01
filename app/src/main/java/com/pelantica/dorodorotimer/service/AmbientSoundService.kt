@@ -15,6 +15,8 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.pelantica.dorodorotimer.R
+import com.pelantica.dorodorotimer.core.debug.Anr
+import com.pelantica.dorodorotimer.core.debug.DemoConfig
 
 /**
  * 雨音（環境音）をループ再生するフォアグラウンドService（mediaPlayback）。
@@ -61,6 +63,17 @@ class AmbientSoundService : Service() {
     }
 
     private fun startPlayback() {
+        // [ANR-FGS] demoMode ON のとき、startForeground の**前**にメインで重い処理を挟んで
+        //  startForegroundService() からの猶予内に startForeground できなくする。ただし
+        //  **kill されるのは背面起動のときだけ**: 前面(TOP)からの起動は while-in-use 扱いで締切が
+        //  免除され、遅れても kill されない（logcat は startForegroundDelayMs を記録するだけ）。
+        //  この事例は TimerAlarmReceiver（タイマー終了＝背面）からの自動起動で
+        //  ForegroundServiceDidNotStartInTimeException として発火する。
+        //  OFF（正版）は下の startForeground を最初に呼ぶ従来どおりの正しい順序＝一切ブロックしない。
+        //  処方: startForeground を先に呼び、重い初期化はその後（または別スレッド）へ。
+        if (DemoConfig.isOn(Anr.ANR_FGS)) {
+            FgsStartupWork.blockMainUntilDeadline()
+        }
         startForeground(NOTIFICATION_ID, buildNotification())
         if (player != null) {
             player?.start()
