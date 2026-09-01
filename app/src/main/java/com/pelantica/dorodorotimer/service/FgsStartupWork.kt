@@ -3,13 +3,15 @@ package com.pelantica.dorodorotimer.service
 import java.security.MessageDigest
 
 /**
- * [ANR-FGS] ForegroundService の `startForeground` 5秒ルール違反の実演用。
+ * [ANR-FGS] ForegroundService の `startForeground` 締切違反の実演用。
  *
- * Android は `startForegroundService()` を呼んだ後、5秒以内に `startForeground()` を呼ばないと
+ * `startForegroundService()` を呼んだ後、規定時間内に `startForeground()` を呼ばないと
  * `ForegroundServiceDidNotStartInTimeException` を投げてアプリを強制終了する
  * （厳密には ANR ではなく RemoteServiceException 系の**クラッシュ**。README の位置づけ参照）。
+ * ドキュメントが言う「5秒ルール」はアプリが守るべき契約であって、システムが実際に kill する
+ * までの猶予とは別物（[BLOCK_MILLIS] の KDoc 参照）。
  * demoMode ON のとき [AmbientSoundService.startPlayback] が `startForeground` の**直前**に
- * これを呼び、故意に5秒ルールを違反させる。
+ * これを呼び、故意に締切を破らせる。
  *
  * 処方: `startForeground` を最初に呼び、重い初期化はその後（または別スレッド）へ。
  */
@@ -19,14 +21,21 @@ internal object FgsStartupWork {
      * [ANR-FGS] メインをブロックする時間（ミリ秒）。
      *
      * 「startForeground 5秒ルール」と呼ばれるが、5秒は**アプリが守るべき契約**の値であって、
-     * システムが実際に kill するまでの猶予とは別物。実測（`adb shell dumpsys activity settings`）では:
-     *  - 猶予は `service_start_foreground_timeout_ms` で決まり、**端末/バージョン依存**。
-     *    Android 17(API37) エミュレータでは **30秒**（旧来の AOSP 実装は 10秒）。
-     *  - さらに前面(TOP)起動は while-in-use 扱いで**免除**され、いくら遅らせても kill されない
-     *    （`startForegroundDelayMs` が記録されるだけ）。kill されるのは**背面起動**のときだけ。
+     * システムが実際に kill するまでの猶予とは別物。
      *
-     * そこで、旧端末の10秒でも新端末の30秒でも確実に超過する **35秒**を焼く。5秒契約は当然破りつつ、
-     * 実装上の kill 閾値（最大30秒級）も確実に超える。**反復回数ではなく時間基準**にするのが肝:
+     * 実測環境: AVD Pixel_10 / Android 17（API 37）エミュレータ。
+     * 他の API レベル・実機では値も挙動も変わりうるので、下記はこの環境での観測として読むこと。
+     *  - 猶予は `service_start_foreground_timeout_ms`（`adb shell dumpsys activity settings`）で
+     *    決まり、この環境では **30秒**。
+     *  - 締切は**前面(TOP)起動でも背面起動でも同じように効く**。違うのは破ったときの見え方:
+     *     - 背面: 30秒で `ForegroundServiceDidNotStartInTimeException` → ANR ダイアログなしの無言 kill
+     *       （`data_app_crash` と ApplicationExitInfo `reason=4` に残る）
+     *     - 前面: 先に **20秒で Service 実行 ANR（ダイアログ付き）** が出て、その後 30秒で
+     *       同じ例外により kill される（AEI `importance=100`）
+     *  - logcat の `allowWiu` は **FGS を起動してよいかの判定**であって、`startForeground`
+     *    締切の免除ではない。
+     *
+     * そこで締切の30秒を確実に超える **35秒**を焼く。**反復回数ではなく時間基準**にするのが肝:
      * 端末が速くても保持時間は変わらず確実に閾値を破る（固定回数ループは高性能端末で一瞬で終わり
      * 発火しない）。考え方は [com.pelantica.dorodorotimer.data.local.stats.StatsStore] の重り（ANR-01/03）と同じ。
      */
