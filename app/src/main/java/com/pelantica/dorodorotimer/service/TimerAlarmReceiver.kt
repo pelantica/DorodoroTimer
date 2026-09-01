@@ -18,8 +18,7 @@ class TimerAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         Log.d(TAG, "onReceive action=${intent?.action}")
         if (intent == null || intent.action != ACTION_TIMER_FINISHED) return
-        // [ANR-06] demoMode ON のとき、ここで重い同期処理（DB集計やsleep等）を走らせると
-        //  onReceive がメインを固めて BroadcastReceiver ANR を再現できる。今回は正版＝即通知のみ。
+        // [ANR-06] 正版はここを素通りして即通知するだけ。demoMode ON のときだけ下を通る。
         if (DemoConfig.isOn(Anr.ANR_06)) {
             // [ANR-06] onReceive はメインで動く。ここで同期重処理をすると受信枠超過で ANR になる。
             //  処方: goAsync() で PendingResult を確保しつつ重処理を別スレッドへ逃がした後

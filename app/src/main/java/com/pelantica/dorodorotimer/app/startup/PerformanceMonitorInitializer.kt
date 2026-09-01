@@ -15,9 +15,8 @@ internal object PerformanceMonitorInitializer {
     private const val TAG = "PerformanceMonitorInitializer"
 
     /**
-     * [ANR-02] ハッシュチェーンのラウンド数。[AnalyticsInitializer.HASH_ROUNDS] と同じ値・同じ校正記録。
-     * 実機校正の記録（エミュ API 36 / 2026-07-30、200万ラウンド）: 約1.4〜1.6秒
-     * （3回計測: 1386ms/1499ms/1566ms）。端末が変われば再校正する。
+     * [ANR-02] ハッシュチェーンのラウンド数。[AnalyticsInitializer.HASH_ROUNDS] と同じ値で、
+     * エミュ API 36 で約1.4〜1.6秒。端末が変われば再校正する。
      */
     internal const val HASH_ROUNDS = 2_000_000
 

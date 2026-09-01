@@ -71,15 +71,13 @@ val appModule = module {
     single<SecureVaultKeyProvider> { CachingSecureVaultKeyProvider(androidContext()) }
 
     // [ANR-01] demoMode ON → BlockingStatsRepository（生SQLite・呼んだスレッドで同期実行→ANR）
-    //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO ＋ withContext(IO)→安全）
+    //          demoMode OFF → OffloadedStatsRepository（Room suspend DAO が IO へ逃がす→安全）
     //  原因が「実装まるごとの性質」なので DI で実装ごと差し替える（規約のDI-swapパターン）。
     //  seedDemoData には master トグル（DemoConfig.enabled）を**読む関数**を渡す。ANR-01 個別トグルが
     //  OFF でも master が ON（＝demoMode中）なら Offloaded 側にも同じデモデータを入れて、
     //  「ANRするかしないか」だけを公平に対比できるようにする。master が OFF（リリース）のときは
-    //  絶対に false になり、架空データを作らない。
-    //  値ではなく関数で渡すのは、この single が生成後キャッシュされるため（理由は
-    //  OffloadedStatsRepository の KDoc）。どちらの実装を注入するかは生成時に固定でよい
-    //  ＝ ANR_01 が requiresRestart = true であることと対応する。
+    //  絶対に false になり、架空データを作らない（値ではなく関数で渡す理由は
+    //  OffloadedStatsRepository の KDoc）。
     single<StatsRepository> {
         if (DemoConfig.isOn(Anr.ANR_01)) {
             BlockingStatsRepository(get())
@@ -103,9 +101,9 @@ val appModule = module {
     }
 }
 
-// TODO(ANR-02 / ANR-03 / ANR-07): 起動時の初期化集中・ClassLoader 起因のANRの「処方」をここで実演する。
-//  - demoMode ON: 重い依存を eager な module { single { Heavy() } } で起動時生成 → ②③⑦ を誘発
-//  - demoMode OFF: lazyModule { } ＋ 遅延 single に置き換え → 必要時まで生成・クラスロードを先送り
+// TODO(ANR-07): ClassLoader 起因のANRの「処方」をここで実演する。
+//  - demoMode ON: 重い依存を eager な module { single { Heavy() } } で起動時生成
+//  - demoMode OFF: lazyModule { } ＋ 遅延 single に置き換え → 必要時までクラスロードを先送り
 //  例:
 //    val lazyAppModule = lazyModule { single { /* 重い依存 */ } }
 //    // DorodoroApplication: startKoin { lazyModules(lazyAppModule) }

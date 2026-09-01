@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit
  * `JOB androidx.work.systemjobscheduler:...#AnrLogUploadWorker#` で探すこと）:
  * 非給電だとクォータ（`WITHIN_QUOTA`）で保留され、Android 15+ はフレックスの
  * まとめ実行で遅延満了後さらに1〜2分待たされる。`scripts/demo-anr05.sh` は両方吸収する。
- * （ポリシー3連敗の経緯・実測の詳細はスライド repo の NOTES.md）
  */
 object AnrLogUploadScheduler {
     private const val UNIQUE_WORK_NAME = "anr_log_upload"
@@ -37,9 +36,9 @@ object AnrLogUploadScheduler {
      * （前面で遅延が切れると GreedyScheduler がその場で消化して目覚ましが消える）、
      * 長くするとデモの待ち時間が増える。
      *
-     * 実測（2026-08-17・エミュ API 37）: `am kill` は対象が cached に落ちるまで no-op なので、
-     * HOME を送ってから実際に殺せるまで **10〜15秒**かかる。20秒だと余裕が5秒しかなく
-     * 「殺し終える前に遅延が切れて前面で消化される」ことがあったため 30 秒に広げた。
+     * `am kill` は対象が cached に落ちるまで no-op なので、HOME を送ってから実際に殺せるまで
+     * **10〜15秒**かかる（エミュ API 37 実測）。30 秒はその実測にマージンを乗せた値で、
+     * これより短いと「殺し終える前に遅延が切れて前面で消化される」。
      * 変更したら `scripts/demo-anr05.sh` の `ARM_DELAY_SECONDS` も合わせること。
      */
     internal const val INITIAL_DELAY_SECONDS = 30L

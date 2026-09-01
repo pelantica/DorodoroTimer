@@ -21,11 +21,7 @@ internal object CrashReportingInitializer {
     private const val TAG = "CrashReportingInitializer"
 
     /**
-     * [ANR-02] 同期ファイルI/Oの反復回数。
-     *
-     * 実機校正の記録（エミュ API 36 / 2026-07-30）:
-     *  - 300回 → 約175ms。他の初期化と合わせても合計が5秒に届かず、1,200回に引き上げた。
-     *  - 1,200回（2KBペイロード）→ 約0.6〜1.0秒（3回計測: 654ms/676ms/1011ms）。この値を採用。
+     * [ANR-02] 同期ファイルI/Oの反復回数。2KBペイロードで、エミュ API 36 で約0.6〜1.0秒になる値。
      * 端末が変われば再校正する。
      */
     internal const val IO_ITERATIONS = 1_200

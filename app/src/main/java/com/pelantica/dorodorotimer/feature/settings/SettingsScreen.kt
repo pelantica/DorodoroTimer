@@ -85,7 +85,6 @@ fun SettingsContent(
             .padding(horizontal = 20.dp, vertical = 24.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        // マスタースイッチ
         SectionCard {
             Row(
                 modifier = Modifier
@@ -123,7 +122,6 @@ fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ANR個別トグルセクション
         Text(
             text = stringResource(R.string.settings_anr_section_title),
             style = MaterialTheme.typography.labelMedium,

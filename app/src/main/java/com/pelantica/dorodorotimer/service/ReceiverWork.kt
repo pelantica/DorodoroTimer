@@ -15,10 +15,7 @@ object ReceiverWork {
      * [ANR-06] onReceive（メインスレッド）で同期実行すると受信枠を超過して ANR になる。
      *
      * 実装: [limit] 以下の素数を試し割りで数え上げる決定的な CPU 負荷。
-     * Thread.sleep ではなく実負荷なので goAsync() を使っても正しい処方が必要。
-     *
-     * 処方: goAsync() で PendingResult を確保しつつ、この処理を別スレッド（コルーチン等）
-     *      で実行し、完了後に PendingResult.finish() を呼ぶ。
+     * Thread.sleep ではなく実負荷なので、goAsync() だけでなく別スレッドへの退避まで要る。
      *
      * @param limit 素数カウントの上限。デモは既定値 [PRIME_LIMIT]、テストは小さい値で決定性のみ検証する。
      * @return 検証用の決定的な値（limit 以下の素数の個数）。

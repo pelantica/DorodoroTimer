@@ -29,20 +29,12 @@ import kotlin.system.measureTimeMillis
  * fire-and-forget ではなく `Deferred` ゲート（`async(start = LAZY)` ＋ 使う側が `await()`）
  * にして「未初期化のまま使う」レースを型で防ぐ。
  *
- * ## 実機校正の記録（エミュ API 36 (sdk_gphone16k_arm64) / 2026-07-30、`adb shell am start -W`）
- * - ANR版: TotalTime 9080〜9934ms（onCreate内の同期初期化だけで合計6.6〜8.0秒。
- *   各SDK風初期化の内訳は各ファイルのKDoc参照。1つが突出せず分散している）
- * - 正版:  TotalTime 1917ms。初期化は起動8.5秒後にワーカー上で完了
- *   （`all initializers done in 8455ms (off-main)`）。StrictMode も沈黙する
- * - 実機ANR確認: 起動中に `adb shell input keyevent KEYCODE_DPAD_CENTER` を送ると
- *   `ActivityManager: ANR in com.pelantica.dorodorotimer ... Reason: Input dispatching
- *   timed out (Application does not have a focused window).` が発生（logcat実測）。
- *   一方 `adb shell input tap` の単純タップは Android 12+ のスプラッシュ用
- *   `ActivityRecordInputSink`（NO_INPUT_CHANNEL）に吸収され ANR を誘発しない場合がある
- *   （実機デモ台本ではキー入力を使う想定にする）
+ * ANR版で起動を固めたことを確かめるには `adb shell input keyevent KEYCODE_DPAD_CENTER` を使う。
+ * `adb shell input tap` の単純タップは Android 12+ のスプラッシュ用 `ActivityRecordInputSink`
+ * （NO_INPUT_CHANNEL）に吸収され、ANR を誘発しない場合がある。
  *
- * 観測方法（デモ用）: logcat で `adb shell am start -W`（起動時間）＋ タグ `StartupGate`
- * （完了ログ）を見ると、「起動は速い・初期化は数秒後に全部終わっている」の両立が確認できる。
+ * 観測方法: `adb shell am start -W`（起動時間）＋ logcat タグ `StartupGate`（完了ログ）で、
+ * 「起動は速い・初期化は数秒後に全部終わっている」の両立が確認できる。
  */
 internal object StartupGate {
 
@@ -98,11 +90,9 @@ internal object StartupGate {
      *
      * しかも落ち方が経路で非対称になる: [runOnMainThread] は `onCreate` のスタックで
      * その場で落ちるのに対し、こちらは起動から数秒後にワーカースレッドから落ちるため
-     * 何が引き金か追いにくい。**正しい実装の側だけデバッグしづらい**のは避けたい。
-     *
-     * 教材としても「onCreate は予約だけ」の処方には
-     * 「投げっぱなしにするなら失敗の受け皿は要る」が付いてくる、という一段がある。
-     * 初期化に失敗しても製品としては起動を止めない（6つとも結果を誰も使わないため）。
+     * 何が引き金か追いにくい。「onCreate は予約だけ」の処方には
+     * 「投げっぱなしにするなら失敗の受け皿は要る」が付いてくる。
+     * 初期化に失敗しても起動は止めない（6つとも結果を誰も使わないため）。
      */
     private val failureLogger = CoroutineExceptionHandler { _, e ->
         Log.w(TAG, "startup initializers failed off-main (startup itself is unaffected)", e)
@@ -113,8 +103,7 @@ internal object StartupGate {
      * 「差分は呼ぶスレッドだけ」がコードの構造で保証される。
      *
      * パラメータはテスト用の注入口。**既定値は必ず各 Initializer 自身の定数にすること**
-     * （他の Initializer の定数を借りると、端末が変わってそちらだけ再校正したときに
-     * 片方の経路だけ作業量が変わる。以前それで ON/OFF がズレる形になっていた）。
+     * （他の Initializer の定数を借りると、そちらだけ再校正したときに作業量がズレる）。
      */
     internal fun runAll(
         context: Context,
