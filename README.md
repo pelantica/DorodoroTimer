@@ -1,68 +1,93 @@
-# Dorodoro Timer 🍅⏱
+# <img src="docs/images/icon.svg" width="28" alt=""> Dorodoro Timer 🍅⏱
 
-DroidKaigi 2026 セッション **「あなたのANRはどこから？ — 発生する仕組みを診断し、症状別に処方する」** の登壇用サンプルアプリ。
+**ANR（Application Not Responding）をわざと起こせるポモドーロタイマー。** DroidKaigi 2026 セッション **[「あなたのANRはどこから？ — 発生する仕組みを診断し、症状別に処方する」](https://2026.droidkaigi.jp/timetable/1236227/)** のサンプルアプリ。
 
-「集中作業用タイマー（ポモドーロ）」という**普通のアプリ**のコードに、ANR の種になる実装を**自然な形で埋め込み**、各所のマーカーコメント（`// [ANR-xx] ...`）と、この README の対応表でスライドの事例に紐づける。デモ用の不自然な発火ボタンは作らず、「**普通に操作すると固まる**」を見せる。
+「集中作業用タイマー」という普通のアプリのコードに、ANR の原因になる実装を自然な形で埋め込んである。設定画面のトグル（demoMode）を ON にすると、デモ用の発火ボタンではなく**普通に操作するだけで実際に固まる**。仕込んだ箇所にはすべてマーカーコメント `// [ANR-xx]` が付いていて、この README の対応表から辿れる。
 
-> 将来は「25分の縛りが鬱陶しい」を改善する方向で機能追加してリリース予定。DroidKaigi 後に KMP 化も視野。
+<p align="center"><img src="docs/images/screenshot-timer.png" width="280" alt="タイマー画面のスクリーンショット"></p>
 
-## この README の読み方
+- **セッション**: DroidKaigi 2026 / 2026-09-02 16:20–17:00 / Narwhal / chomi — https://2026.droidkaigi.jp/timetable/1236227/
+- **demoMode OFF（既定）では ANR は一切起きない**。標準コードはリリース品質の正しい実装で、多くの事例には「正版」（処方を適用した実装）が並置してある。
 
-1. **demoMode**（次の節） — ANR再現の仕組みの全体像。まずこれを読むと以降の話がつながる。
-2. **スライド事例 ↔ コード対応表** — この README の中核。各 ANR 事例とコード・処方・実装状況の一覧。
-3. 対応表のすぐ下にある各事例の補足ノート（正版の設計、実機での再現手順など）。
-4. 永続化・StrictMode・技術スタックなどの補足情報。
+## 試してみる（Quick start）
 
-## demoMode（教材と製品の両立）
+もっとも確実に再現できる **ANR-03（起動 × ロック競合）** を例にする。時間基準（ロックを 25 秒保持）なので端末スペックに依存しない。
 
-標準コードは**正しい（リリース品質）実装**。マスタートグル＋ ANR ごとの個別トグル（設定画面）があり、`DemoConfig.isOn(Anr.XX)`（= master AND 個別）が **ON のときだけ** ANR 誘発経路を通る。リリースは常に OFF。
+1. ビルドしてインストールする（[ビルド・実行](#ビルド実行)参照）
 
-- **分岐は原則 DI（Koin）で実装ごと差し替え**（呼び出し側はクリーン、before/after が実装ファイル単位で並ぶ）。
-- DI で差し替えにくい局所だけ、その場に `if (DemoConfig.isOn(Anr.XX)) { /* [ANR-xx] */ }`。
+   ```bash
+   ./gradlew :app:installDebug
+   ```
 
-## スライド事例 ↔ コード 対応表
+2. アプリを起動し、**設定**タブを開く
+3. **「🧪 デモモード（ANR再現）」**（マスタートグル）を ON にする
+4. **「ANR-03 ディープリンク×ロック競合」** を ON にする → 再起動ダイアログが出るので**「再起動する」**を選ぶ
+5. 再起動した直後（25 秒以内）に**統計**タブを開く
+6. 画面が凍る。そのまま何度かタップすると、**約 5 秒で ANR ダイアログ**（「Dorodoro Timer が応答していません」）が表示される
 
-> 軸: busy=作業中 / waiting=待たされ。**配置列はファイルパスのみ**（行番号は実装が変わるたびにずれてすぐ不正確になるため載せない）。正確な行を知りたいときは各ファイル内を対応する `[ANR-xx]` マーカーで検索する（例: `grep -rn "\[ANR-01\]" app/src/main/java`）。
+裏で起きていること: 起動時にワーカースレッドが統計ストアの初期化ロックを 25 秒握り、統計画面がメインスレッドから同じロックを同期取得しに行って凍る。入力イベントが 5 秒ディスパッチされないと ANR。詳細は `data/local/stats/StatsStore.kt` と `feature/stats/StatsScreen.kt` の `[ANR-03]` マーカー参照。
 
-| ANR-ID | 事例 | 軸 | 締切種別 | 配置 | 処方 | 状態 |
+## demoMode の仕組み
+
+- **マスタートグル ＋ ANR ごとの個別トグル**（設定画面）。`DemoConfig.isOn(Anr.XX)`（= master AND 個別）が ON のときだけ ANR 誘発経路を通る。**リリースビルドでは常に OFF**。
+- 標準コードは正しい（リリース品質）実装。分岐は**原則 DI（Koin）で実装ごと差し替え**、呼び出し側はクリーンに保ち、before/after が実装ファイル単位で並ぶようにしている。
+- DI で差し替えにくい局所（`onReceive` 内、`startForeground` 直前など）だけ、その場に `if (DemoConfig.isOn(Anr.XX)) { /* [ANR-xx] */ }` を置く。
+- 起動時に一度だけ配線される事例（DI の `single`、`Application.onCreate` 内の分岐）はトグル変更時に再起動を求める。
+
+## ANR 事例 ↔ コード対応表
+
+> 軸: busy = メインスレッドが作業中 / waiting = 待たされ。配置列はファイルパスのみ（行番号は実装が変わるとずれるため載せない）。正確な位置は各 `[ANR-xx]` マーカーで検索する（例: `grep -rn "\[ANR-01\]" app/src/main/java`）。
+
+| ANR-ID | 事例 | 軸 | 締切種別 | 主な配置 | 処方 | 状態 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ANR-01 | メインスレッド I/O（生SQLite vs Room） | busy | input | `di/AppModule.kt`（DI差し替え）/ `data/local/stats/BlockingStatsRepository.kt` | Room の suspend DAO に任せる（守ってくれないライブラリは自前で `withContext(IO)`） | 実装済み |
-| ANR-02 | Application.onCreate の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt` / `app/startup/StartupGate.kt` | `StartupGate.runOnWorkerThread`（onCreate は予約だけ）。Koin `lazyModule` も候補 | 実装済み（正版込み） |
-| ANR-03 | Deeplink 起動 × ロック競合 | waiting | input | `data/local/stats/StatsStore.kt`（ロック保持）/ `app/DorodoroApplication.kt`（BGでウォームアップ）/ `feature/stats/StatsScreen.kt`（メインの同期アクセス） | メインから同期アクセスしない（suspend 化して `withContext` で待つ）/ 初期化とロック保持の分離（ロック内は代入だけ）/ シングルトン遅延評価の設計。**正版**: 準備状態を `StateFlow` で公開し UI は Loading→Ready を観測（メインは待たない）／排他が要るなら `synchronized` ではなく `Mutex.withLock`（suspend で凍らせない）。出典: [ANR ドキュメント](https://developer.android.com/topic/performance/vitals/anr) | 実装済み（実機校正は登壇前TODO） |
-| ANR-04 | Keystore 風の鍵生成（Binder + セキュアHW IPC） | waiting | 起動（bind application 15秒） | `app/DorodoroApplication.kt`（起動時に鍵庫から鍵を同期ロードする分岐）/ `vendor/securevault/SecureVaultKeyBootLoader.kt`（メインで transact する側）/ `vendor/securevault/SecureVaultService.kt`（`:vault` プロセスの待たせる側） | 起動クリティカルパス（onCreate）で鍵をメインスレッド同期取得しない。バックグラウンドで先読みし UI は即応答させる。相手はシステム／セキュアHWなので**速くする手段は無く、待ち方を変えるしかない** | 実装済み（正版込み） |
-| ANR-05 | 背面起動 ANR（WorkManager / AlarmManager が起こす・ANR-02 連結） | busy | 起動（bind application 15秒） | `app/DorodoroApplication.kt`（分岐）/ `app/startup/StartupOrigin.kt`（背面判定・安全弁）/ `app/startup/UnsentReportIndexInitializer.kt`（+10.5秒）/ `service/work/AnrLogUploadScheduler.kt`（種蒔き） | ANR-02 と同じ「onCreate は予約だけ」＝ `StartupGate.runOnWorkerThread`。doWork 自体は軽量なまま（無罪） | 実装済み（実機E2E検証済み） |
-| ANR-06 | BroadcastReceiver（onReceive 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt` / `service/ReceiverWork.kt` | `goAsync()` / 処理をメイン外へ | 実装済み（実機5秒超の最終校正は登壇前TODO） |
-| ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | _未_ | Koin `lazyModule` で遅延 | 未着手（速射枠） |
-| ANR-FGS | ForegroundService の startForeground 猶予超過（前面はANRダイアログの後にkill、背面は無言kill） | waiting | service | `service/TimerAlarmReceiver.kt`（タイマー終了＝背面で雨音FGSを自動起動）/ `service/AmbientSoundService.kt`（startForeground 直前で分岐）/ `service/FgsStartupWork.kt`（時間基準で35秒メインを焼く） | 即 startForeground を呼び、重い初期化は後（別スレッド）へ | 実装済み（CFP外・目玉候補。厳密には ForegroundServiceDidNotStartInTimeException＝クラッシュ。「5秒ルール」はアプリが守るべき契約の値で、実際に kill されるまでの猶予はこれとは別物。**観測環境（AVD Pixel_10 / Android 17, API 37 エミュレータ・2026-09-01実測）では締切は前面/背面で共通**（`service_start_foreground_timeout_ms`=30秒）。~~前面は while-in-use で免除~~は誤りで、**前面は先に20秒でService実行ANR（ダイアログ付き）が出た後、30秒で同じ例外により kill**される。背面はANRダイアログを経由せず無言で kill され、痕跡は `data_app_crash` と AEI `reason=4 (APP CRASH)`。他のAPIレベル・実機では猶予やダイアログの有無が変わりうるため断定しない。35秒焼くのは前面・背面どちらの締切も確実に超えるため。再現手順は下の「ANR-FGS の再現手順」参照） |
+| ANR-01 | メインスレッド I/O（生SQLite vs Room） | busy | input（5秒） | `di/AppModule.kt` / `data/local/stats/BlockingStatsRepository.kt` | Room の suspend DAO に任せる。守ってくれないライブラリは自前で `withContext(IO)` | 実装済み |
+| ANR-02 | `Application.onCreate` の重い初期化 | busy | 起動 | `app/DorodoroApplication.kt` / `app/startup/StartupGate.kt` | onCreate は予約だけにしてワーカースレッドで実行 | 実装済み |
+| ANR-03 | 起動 × ロック競合 | waiting | input（5秒） | `data/local/stats/StatsStore.kt` / `feature/stats/StatsScreen.kt` | メインから同期アクセスしない。初期化とロック保持を分離 | 実装済み |
+| ANR-04 | Keystore 風の鍵生成（Binder + セキュアHW IPC） | waiting | 起動（bindApplication 15秒） | `vendor/securevault/SecureVaultKeyBootLoader.kt` / `vendor/securevault/SecureVaultService.kt` | 起動クリティカルパスでメインスレッド同期取得しない | 実装済み |
+| ANR-05 | 背面起動 ANR（WorkManager / AlarmManager 起点・ANR-02 と連結） | busy | 起動（bindApplication 15秒） | `app/startup/StartupOrigin.kt` / `service/work/AnrLogUploadScheduler.kt` | ANR-02 と同じ「onCreate は予約だけ」。doWork 自体は無罪 | 実装済み |
+| ANR-06 | BroadcastReceiver（`onReceive` 重処理） | busy/waiting | broadcast | `service/TimerAlarmReceiver.kt` / `service/ReceiverWork.kt` | `goAsync()` / 処理をメイン外へ | 実装済み |
+| ANR-07 | DexFile / ClassLoader（起動時集中） | busy/waiting | 起動 | — | Koin `lazyModule` で遅延 | 未着手 |
+| ANR-FGS | `startForeground` の猶予超過 | waiting | service | `service/AmbientSoundService.kt` / `service/FgsStartupWork.kt` | 即 `startForeground` を呼び、重い初期化は後（別スレッド）へ | 実装済み |
 
-**正版（ANR-04 の処方）**: `vendor/securevault/SecureVaultKeyProvider.kt`（マーカー `[ANR-04][正版]`）。
-`StatsViewModel.reload` から呼ばれ、鍵ロードを ①メイン外（`Dispatchers.IO`）②一度だけ生成してファイルキャッシュ
-③統計画面を開くまで遅延、の3点で onCreate 同期版と対比させている。
+以下、表に収まらない各事例の補足。
 
-**正版（ANR-03 の処方）**: `data/local/stats/StatsStore.kt` の `warmUpReactive` / `readiness`（マーカー `[ANR-03][正版]`）。
-`DorodoroApplication.onCreate` は `appScope.launch` で予約するだけで誰も待たず、重い初期化はロックの外
-（`Dispatchers.Default`）で回してロック内は代入だけにする。`StatsScreen` は `awaitReady()` を呼ばず
-`readiness`（`StateFlow`）を observe するだけで、準備中は画面を覆わず上に小さなインジケータを出す。
+### ANR-01: 端末スペック依存で出ないことがある
 
-### ⚠️ ANR-01 は端末スペック依存（高性能端末では出ないことがある）
+ANR-01 のシード書き込みは行数固定（5000 行を1件ずつ非トランザクション INSERT）のため、高性能な実機では一瞬で終わり、入力ディスパッチの 5 秒締切に届かず ANR にならないことがある。これは欠陥ではなく、**同じコードでも端末スペックで ANR が出たり出なかったりする、という ANR の環境依存性の実例**。エミュレータや廉価端末では再現する。端末非依存で確実に固めたい場合は、時間基準の ANR-03（25 秒保持）や ANR-05 を使う。
 
-ANR-01 のシード書き込みは**行数固定（5000行）**のため、高性能端末（例: Xiaomi 15T Pro / Dimensity 9400+）では一瞬で終わり、入力ディスパッチの5秒締切に届かず ANR にならないことがある。これは欠陥ではなく、**「同じコードでも端末スペックで ANR が出たり出なかったりする」という ANR の環境依存性の実例**（→ 事例③「ANRは環境に左右される」）。エミュレータや廉価端末では再現する。Vitals 採取など**端末非依存で確実に固めたい**場合は、時間基準で保持する ANR-03（25秒）や ANR-05 を使う。
+### ANR-03: 正版（処方後の実装）
 
-### 連結レシピ：ANR-05 背面起動 ANR（ANR-02 と2つ ON）
+`data/local/stats/StatsStore.kt` の `warmUpReactive` / `readiness`（マーカー `[ANR-03][正版]`）。
 
-設定画面で **master ON / ANR-02 ON / ANR-05 ON**（ANR-03 は OFF）にして再起動する。この時点で**前面起動は従来どおり生き残る**（約9〜12秒。ANR-02 の入力5秒は破るが文鎮化はしない）。ANR が出るのは**背面で起こされた起動だけ**で、そちらの締切は `bindApplication` の **15秒 × `ro.hw_timeout_multiplier`** ひとつしかない。
+- `DorodoroApplication.onCreate` は `appScope.launch` で予約するだけで誰も待たない。
+- **正版は自前ロックを持たない**。重い初期化は `Dispatchers.Default` で回し、相互排他は「Application から1回だけ起動する」構造で、結果の公開は `StateFlow` への書き込みで担保する。ロックを消したのではなく、待たせない仕組みへ移している。
+- ロックが要る場合の一般形は「重い処理はロックの外、**ロック内は代入だけ**」（保持時間をミリ秒未満に落とす）。
+- `StatsScreen` は `awaitReady()` を呼ばず `readiness`（`StateFlow`）を observe するだけ。準備中は画面を覆わず、上に小さなインジケータを出す（Loading → Ready の観測。メインは待たない）。
+- 排他が要る場面では `synchronized` ではなく `Mutex.withLock`（suspend で待つのでメインを凍らせない）。
+
+出典: [ANR ドキュメント（Android Developers）](https://developer.android.com/topic/performance/vitals/anr)
+
+### ANR-04: 正版と「待ち方を変える」処方
+
+相手がシステムサービス／セキュアハードウェアの IPC の場合、**呼び出し自体を速くする手段は無く、待ち方を変えるしかない**のがこの事例の核。
+
+正版は `vendor/securevault/SecureVaultKeyProvider.kt`（マーカー `[ANR-04][正版]`）。`StatsViewModel.reload` から呼ばれ、①メイン外（`Dispatchers.IO`）で実行 ②一度だけ生成してファイルキャッシュ ③統計画面を開くまで遅延、の3点で onCreate 同期版と対比させている。
+
+### ANR-05: 背面起動 ANR の再現（ANR-02 と2つ ON）
+
+設定画面で **master ON / ANR-02 ON / ANR-05 ON**（ANR-03 は OFF）にして再起動する。この時点で**前面起動は従来どおり生き残る**（約 9〜12 秒。ANR-02 の入力 5 秒は破るが文鎮化はしない）。ANR が出るのは**背面で起こされた起動だけ**で、そちらの締切は `bindApplication` の **15 秒 × `ro.hw_timeout_multiplier`** ひとつしかない。
 
 **いちばん簡単な再現（アラーム経路・adb 不要・操作は2つ）**:
 
 1. タイマーを短く（1分など）にして**開始**
 2. タスク一覧（Recents）からアプリを**スワイプで終了**（⚠️ 設定アプリの「強制停止」は仕掛けごと消えるので不可）
-3. あとは放置。タイマー終了時刻にアラームがプロセスを起こし、**約15秒後に無言で kill** される（画面には何も出ない。証拠は下の「観測」）
+3. あとは放置。タイマー終了時刻にアラームがプロセスを起こし、**約 15 秒後に無言で kill** される（画面には何も出ない。証拠は下の「観測」）
 
-**WorkManager 経路（1コマンド）**: `./scripts/demo-anr05.sh` — 武装 → kill → 目覚まし待ち → 起動理由の表示 → AEI の確認まで自動でやり、各段階を実況する。前回の残骸・生き残りプロセス・期限切れ Work があっても通るように書いてあるので、連続で何度でも回せる（1回あたり約1分）。スクリプトが吸収する端末側の事情:
+**WorkManager 経路（1コマンド）**: `./scripts/demo-anr05.sh` — 武装 → kill → 目覚まし待ち → 起動理由の表示 → ApplicationExitInfo の確認まで自動で行い、各段階を実況する。前回の残骸・生き残りプロセス・期限切れ Work があっても通るので連続で回せる（1回あたり約1分）。スクリプトが吸収している端末側の事情:
 
 - `am kill` は対象が cached に落ちるまで no-op なので、**pid が消えるまでリトライ**する（1発撃って sleep する方式だと取りこぼす）
-- 非給電の端末は JobScheduler の**クォータ**が効き、デモを繰り返すと `WITHIN_QUOTA` が外れて鳴らなくなる → 給電中に見せかける（戻すには `adb shell cmd battery reset`）
-- Android 15+ の**フレキシブルなジョブ実行**でまとめて実行されるため、初期遅延が切れてから実際に鳴るまで更に1〜2分かかる（実測 約102秒）→ フレックスを切り、遅延が切れたら強制実行で前に倒す（戻すには `adb shell cmd jobscheduler reset-flex-policy`）
+- 非給電の端末では JobScheduler の**クォータ**が効き、繰り返すと `WITHIN_QUOTA` が外れて鳴らなくなる → 給電中に見せかける（戻すには `adb shell cmd battery reset`）
+- Android 15+ の**フレキシブルなジョブ実行**でまとめて実行されるため、初期遅延が切れてから実際に鳴るまで更に 1〜2 分かかることがある → フレックスを切り、遅延が切れたら強制実行で前に倒す（戻すには `adb shell cmd jobscheduler reset-flex-policy`）
 
 **観測**（どちらの経路でも）:
 
@@ -74,50 +99,54 @@ adb shell dumpsys activity exit-info com.pelantica.dorodorotimer
 
 - ⚠️ **`am force-stop` は使わない**。ジョブもアラームも一緒に消えて、プロセスを起こす仕掛けが無くなる。プロセスを殺すのは `am kill`（cached になってから。前面のままだと効かない）。
 - **背面 ANR はダイアログを出さない**。`Killing ... (adj 0): bg anr` で無言 kill され、痕跡は ApplicationExitInfo（`reason=6 (ANR) subreason=34 (BIND APPLICATION ANR)`。`anrInfo` が付く場合は `isUserPerceptible=false` も見える）と、次回起動時に Crashlytics が拾って送るレポートだけ。
-- 目覚ましの Work は**前面起動のときだけ**張り直す（`ExistingWorkPolicy.REPLACE`）。背面起動から同じ一意名を触ると自分を起こした Work を壊すため。ポリシーを3通り試して踏んだ失敗は `service/work/AnrLogUploadScheduler.kt` の KDoc に記録した。
-- 安全弁: 直前が ANR 死なら次の起動は重い初期化をスキップする（`StartupOrigin.lastExitWasAnr`）。再配送ループでの連続 ANR と、デモ機の文鎮化を防ぐ。**それでも開けなくなったら脱出は `adb shell pm clear com.pelantica.dorodorotimer`**（demoMode のフラグも消える）。
+- 目覚ましの Work は**前面起動のときだけ**張り直す（`ExistingWorkPolicy.REPLACE`）。背面起動から同じ一意名を触ると自分を起こした Work を壊すため。
+- 安全弁: 直前が ANR 死なら次の起動は重い初期化をスキップする（`StartupOrigin.lastExitWasAnr`）。再配送ループでの連続 ANR とデモ機の文鎮化を防ぐ。**それでも開けなくなったら脱出は `adb shell pm clear com.pelantica.dorodorotimer`**（demoMode のフラグも消える）。
 
-### ANR-FGS の再現手順
+### ANR-FGS: startForeground 猶予超過の再現
 
-観測環境: AVD Pixel_10 / Android 17（API 37）エミュレータ・2026-09-01実測。他のAPIレベルや実機では猶予秒数・ダイアログの有無が変わりうる。
+厳密には ANR ではなく `ForegroundServiceDidNotStartInTimeException` による**クラッシュ**。「startForeground は 5 秒以内に」という値はアプリが守るべき契約であって、**実際に kill されるまでの猶予はこれとは別物**、というのがこの事例の核。
 
 設定画面で **master ON / ANR-FGS ON** にしたうえで:
 
-1. タイマー画面の時間表示をタップして集中時間を **0:40**（40秒）に設定する
+1. タイマー画面の時間表示をタップして集中時間を **0:40**（40 秒）に設定する
 2. **「開始」**をタップした直後に **HOME キー**でアプリを背面へ退避する
-3. 40秒後にタイマー終了アラームが鳴り、`AmbientSoundService`（雨音FGS）が背面から起動される。そこから**35秒放置**すると `ForegroundServiceDidNotStartInTimeException` でクラッシュする（ANRダイアログは出ない無言 kill）
-4. **前面**から確認したい場合は、タイマー画面の **「🌧️ 雨音を鳴らす」** ボタンでも同じ例外が発生する。ただしこちらは**先に20秒でService実行ANR（ダイアログ付き）が出た後**にクラッシュする点が背面経路と異なる
+3. 40 秒後にタイマー終了アラームが鳴り、`AmbientSoundService`（雨音 FGS）が背面から起動される。そこから **35 秒放置**すると `ForegroundServiceDidNotStartInTimeException` でクラッシュする（ANR ダイアログは出ない無言 kill）
+4. **前面**から確認したい場合は、タイマー画面の**「🌧️ 雨音を鳴らす」**ボタンでも同じ例外が発生する。ただしこちらは**先に 20 秒で Service 実行 ANR（ダイアログ付き）が出た後**にクラッシュする点が背面経路と異なる
 
-CFP（Call for Proposals＝登壇応募）外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は別途バックログに控えてある。採否は後日選定。
+Android 17（API 37）エミュレータでの観測では、kill までの猶予は前面・背面で共通の 30 秒（`service_start_foreground_timeout_ms`）。前面は 20 秒で Service 実行 ANR ダイアログ → 30 秒で同じ例外により kill。背面は ANR ダイアログを経由せず無言で kill され、痕跡は `data_app_crash` と ApplicationExitInfo `reason=4 (APP CRASH)`。**他の API レベル・実機では猶予秒数やダイアログの有無が変わりうる**ため断定はしない。デモで 35 秒メインを塞ぐのは、前面・背面どちらの締切も確実に超えるため。
 
-## 永続化（事例①の核：ライブラリのスレッド管理を見極める）
+## 設計上のポイント
+
+### 永続化: ライブラリがスレッドを管理してくれるかを見極める（ANR-01 の核）
 
 | ライブラリ | スレッドの扱い | 役割 |
 | --- | --- | --- |
-| Room | suspend/Flow DAO は IO へ逃す（守ってくれる側） | 「守ってくれる」例 |
-| SQLDelight | クエリはデフォルト同期実行（守ってくれない側） | 「守ってくれない」例＝事例①の正体 |
+| Room | suspend/Flow DAO は IO へ逃す | 「守ってくれる」例 |
+| SQLDelight | クエリはデフォルト同期実行 | 「守ってくれない」例 |
 | DataStore | suspend/Flow で非同期 | 補助 |
 
-> ⚠️ SQLDelight は AGP 9 未対応のため現在**無効化中**（`.sq` と TODO は残置）。事例①の「守ってくれない」側は生SQLite（`data/local/stats/RawSqliteStatsHelper.kt` + `BlockingStatsRepository`）で代替している。
+> ⚠️ SQLDelight は AGP 9 未対応のため現在**無効化中**（`.sq` と TODO は残置）。「守ってくれない」側は生SQLite（`data/local/stats/RawSqliteStatsHelper.kt` + `BlockingStatsRepository`）で代替している。
 
-## StrictMode（デバッグビルドのみ・処方側の実演）
+### StrictMode（デバッグビルドのみ・気づく側の実演）
 
-ANR を仕込む demoMode とは**独立**して、デバッグビルドでは常にメインスレッドのディスク I/O を検出する（`core/debug/StrictModeInstaller.kt`）。違反が出ると画面上部にバナーが出て、タップすると Android が出力したスタックトレース全文を表示する。マーカー `[ANR-xx]` は付けない（仕込み側ではなく気づく側のため）。
+ANR を仕込む demoMode とは**独立**して、デバッグビルドでは常にメインスレッドのディスク I/O を検出する（`core/debug/StrictModeInstaller.kt`）。違反が出ると画面上部にバナーが出て、タップすると Android が出力したスタックトレース全文を表示する。仕込み側ではなく気づく側のため、マーカー `[ANR-xx]` は付けていない。
 
-- **ネットワークは OS が既定でメインスレッド禁止**（`initThreadDefaults` が `detectNetwork` + `penaltyDeathOnNetwork` を入れる＝`NetworkOnMainThreadException` の正体）。**ディスク I/O は検出すらされない**ので、自分でスイッチを入れる必要がある。
-- 既定ポリシーを引き継ぐため `ThreadPolicy.Builder(StrictMode.getThreadPolicy())` から組み立てる。`Builder()` を新規に作ると `penaltyDeathOnNetwork` が消え、デバッグビルドの方が緩くなる。
+- **ネットワークは OS が既定でメインスレッド禁止**（`initThreadDefaults` が `detectNetwork` + `penaltyDeathOnNetwork` を入れる＝`NetworkOnMainThreadException` の正体）。一方**ディスク I/O は既定では検出すらされない**ので、自分でスイッチを入れる必要がある。
+- 既定ポリシーを引き継ぐため `ThreadPolicy.Builder(StrictMode.getThreadPolicy())` から組み立てる。`Builder()` を新規に作ると `penaltyDeathOnNetwork` が消え、**デバッグビルドの方がリリースより緩くなる**罠がある。
 - `penaltyDeath` は使わない。落とさずに気づかせるのが目的。
 - リリースビルドでは `BuildConfig.DEBUG` で丸ごと無効。
 
 ## 技術スタック
 
-Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + DataStore（SQLDelight は AGP9 対応待ちで無効化中）/ WorkManager / Firebase Crashlytics。Version Catalog 管理・単一モジュール。
+Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + DataStore（SQLDelight は AGP 9 対応待ちで無効化中）/ WorkManager / Firebase Crashlytics。Version Catalog 管理・単一モジュール。minSdk 26 / targetSdk 36。
 
 ## ビルド・実行
 
+Android Studio で開いて Run するのが確実（同梱の JBR = JDK 21 を使う）。CLI では JDK 21 を指す `JAVA_HOME` で:
+
 ```bash
-./gradlew :app:assembleDebug
-# または Android Studio で開いて Run
+./gradlew :app:assembleDebug   # ビルド
+./gradlew :app:installDebug    # 接続中の端末へインストール
 ```
 
 ## パッケージ構成
@@ -125,17 +154,21 @@ Kotlin / Jetpack Compose (Material3) / Koin（DI）/ Room + DataStore（SQLDelig
 ```
 com.pelantica.dorodorotimer
 ├── app/            Application（Koin 起動）/ startup/（ANR-02 の SDK風初期化と StartupGate）
-├── di/             Koin モジュール（demoMode 差し替え／lazyModule 処方の場）
-├── core/debug/     DemoConfig（ANR再現モードのフラグ）/ StrictMode バナー
+├── di/             Koin モジュール（demoMode 差し替え）
+├── core/debug/     DemoConfig（demoMode のフラグ）/ StrictMode バナー
 ├── core/ui/        Theme / SectionCard
 ├── feature/timer/  タイマー画面（ポモドーロ本体・時間ホイール）
 ├── feature/stats/  統計画面（日別集計・デモ用シードの2セクション表示）
 ├── feature/settings/ 設定画面（demoMode トグル・開発ツール）
-├── data/local/     Room / DataStore / 生SQLite（stats。SQLDelight は無効化中）
+├── data/local/     Room / DataStore / 生SQLite（SQLDelight は無効化中）
 ├── domain/model/   PomodoroPreset / TimerPhase
-└── service/        AmbientSoundService（雨音FGS）/ TimerAlarmReceiver / work/（ANRログ送信Work）
+├── domain/repository/ データ層のインターフェース（DI で実装を差し替える境界）
+├── service/        AmbientSoundService（雨音FGS）/ TimerAlarmReceiver / work/（ANRログ送信Work）
+└── vendor/         SecureVault（ANR-04 の別プロセス鍵庫の模型）
 ```
 
-## ステータス
+## 注意書き
 
-タイマー・統計・設定・テーマは製品品質で動作。ANR パターンは **01 / 02 / 03 / 04 / 05 / 06 / FGS が実装済み**（対応表参照。02 と 04 は正版=ワーカー実行込み、03 / 05 は実機E2E検証済み）。07 は未着手。
+- これは **ANR の仕組みを学ぶための教材**であり、ANR・クラッシュは意図的に仕込まれている。demoMode を ON にした状態での挙動（フリーズ・無言 kill・クラッシュ）はすべて仕様。
+- demoMode の ON/OFF はデバッグビルドの設定画面からのみ操作でき、リリースビルドでは常に OFF。
+- タイマー・統計・設定の各機能自体はリリース品質で動作する。
