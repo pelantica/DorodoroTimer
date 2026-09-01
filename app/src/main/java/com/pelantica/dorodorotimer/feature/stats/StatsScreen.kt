@@ -39,15 +39,12 @@ import java.time.LocalDate
 
 @Composable
 fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinViewModel()) {
-    // [ANR-03] 通知ディープリンク流入（冷えた起動）でこの画面が前面化する。
-    //  起動と同時に走り出した StatsStore.warmUp がまだロックを握っている最中に、
-    //  メイン（LaunchedEffect の本体は Main dispatcher で走る）が同じ monitor を取りに行く。
+    // [ANR-03] 冷えた起動の最中（StatsStore.warmUp がロックを握っている間）に、
+    //  メインが同じ monitor を取りに行って凍る。
     if (DemoConfig.isOn(Anr.ANR_03)) {
         LaunchedEffect(Unit) {
-            // [ANR-03] 初回フレームを2回待ってから取りに行く: 凍る瞬間を「画面が描かれ
-            //  ウィンドウがフォーカスを得た後」に置き、ANR の帰属を自アプリにするため
-            //  （最初のウィンドウより前に凍ると入力締切がランチャー帰属になり
-            //  Crashlytics/Vitals に写らない）。
+            // [ANR-03] 初回フレームを2回待ってから取りに行く（描画・フォーカス取得後に
+            //  凍らせて、ANR の帰属を自アプリにするため）。
             withFrameNanos { }
             withFrameNanos { }
             // [ANR-03] 「もう初期化済みのはずだから一瞬」という思い込みの同期アクセス。
@@ -55,8 +52,7 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
             StatsStore.awaitReady()
         }
     }
-    // タブに入るたびに読み直す（LaunchedEffect(Unit) はこの画面が composition に
-    // 入り直すたびに再実行される。理由は StatsViewModel.reload の KDoc）。
+    // タブに入るたびに読み直す（理由は StatsViewModel.reload の KDoc）。
     LaunchedEffect(Unit) { viewModel.reload() }
     val uiState by viewModel.uiState.collectAsState()
 
@@ -64,25 +60,19 @@ fun StatsScreen(modifier: Modifier = Modifier, viewModel: StatsViewModel = koinV
         StatsContent(modifier = modifier, uiState = uiState)
     } else {
         // [ANR-03][正版] awaitReady は呼ばない。readiness を observe するだけ＝main は待たない。
-        //  画面は即描画され、準備中は上に小さなインジケータが乗るだけ（内容は隠さない）。
-        //  準備できたら readiness が true になり、インジケータは自然に消える。
+        //  準備中は上に小さなインジケータが乗るだけで、済めば自然に消える。
         val isStatsStoreReady by StatsStore.readiness.collectAsState()
         Column(modifier = modifier) {
             if (!isStatsStoreReady) {
                 StatsStoreWarmingIndicator()
             }
-            // [ANR-03][正版] weight(1f) は高さだけを埋める。横は fillMaxWidth を足さないと
-            //  StatsContent の空状態 Box（contentAlignment=Center）が幅=内容のまま左寄せになる。
+            // [ANR-03][正版] fillMaxWidth が無いと空状態の Box が幅=内容のまま左寄せになる。
             StatsContent(modifier = Modifier.fillMaxWidth().weight(1f), uiState = uiState)
         }
     }
 }
 
-/**
- * [ANR-03][正版] [StatsStore.readiness] が false の間だけ出す非ブロッキングの案内行。
- * 画面全体を覆うスピナーにはしない（このアプリの方針。[StatsUiState] の KDoc参照）。
- * 内容は今まで通り描画したまま、上に小さく乗るだけで、準備が済めば自然に消える。
- */
+/** [ANR-03][正版] [StatsStore.readiness] が false の間だけ出す非ブロッキングの案内行。 */
 @Composable
 private fun StatsStoreWarmingIndicator(modifier: Modifier = Modifier) {
     Row(
@@ -104,9 +94,7 @@ private fun StatsStoreWarmingIndicator(modifier: Modifier = Modifier) {
 
 @Composable
 fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiState()) {
-    // 読み込み表示はセクション単位。画面全体を覆うスピナーは出さない
-    // （片方が読めていればその内容は出せるので、全部を隠す理由がない）。
-    // demoMode OFF で読み終わっていて実データも空: 従来どおり中央に空表示
+    // 読み込み表示はセクション単位（画面全体を覆うスピナーは出さない）。
     if (!uiState.isDemoMode && !uiState.isRealLoading && uiState.realStats.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(text = stringResource(R.string.stats_empty))
@@ -118,7 +106,7 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
     ) {
         if (!uiState.isDemoMode) {
-            // demoMode OFF（通常時）: 実データだけを従来どおり1枚で（見出しなし）
+            // demoMode OFF（通常時）: 実データだけを1枚で（見出しなし）
             if (uiState.isRealLoading) loadingCard(R.string.stats_loading)
             else statsCard(uiState.realStats)
             return@LazyColumn
@@ -138,8 +126,7 @@ fun StatsContent(modifier: Modifier = Modifier, uiState: StatsUiState = StatsUiS
             else -> statsCard(uiState.realStats)
         }
         sectionHeader(R.string.stats_section_demo, topPadding = 24.dp)
-        // シード投入を伴って数秒かかる。前回の集計を出したままにせず中身を差し替える
-        // （出したままだと「読み終わった値」に見えてしまうため）。
+        // デモ側は数秒かかるので、前回の集計を出したままにせず中身をスピナーへ差し替える。
         if (uiState.isDemoLoading) loadingCard(R.string.stats_loading_demo)
         else statsCard(uiState.demoStats.orEmpty())
     }
@@ -187,9 +174,8 @@ private fun LazyListScope.sectionHeader(@StringRes labelRes: Int, topPadding: Dp
 }
 
 /**
- * 日別集計のリストを「白いカードに行が並ぶ」見た目で描く（設定画面のANRトグルと同じ意匠）。
- * 件数が読めないので Card は張れない（LazyColumn が要る）。代わりに項目ごとに
- * 角丸を出し分けて1枚のカードに見せている（先頭は上だけ・末尾は下だけ丸める）。
+ * 日別集計のリストを「白いカードに行が並ぶ」見た目で描く。
+ * LazyColumn なので Card は張れず、項目ごとに角丸を出し分けて1枚のカードに見せている。
  */
 private fun LazyListScope.statsCard(stats: List<DailyStat>) {
     itemsIndexed(stats) { index, stat ->

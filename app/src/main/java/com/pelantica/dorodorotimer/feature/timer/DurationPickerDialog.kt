@@ -224,10 +224,8 @@ private fun WheelNumberPicker(
     val flingBehavior = rememberSnapFlingBehavior(listState)
     val sidePadding: Dp = WheelItemHeight * (WHEEL_VISIBLE_ITEM_COUNT / 2)
 
-    // LaunchedEffect のキーは listState と values だけなので、コルーチンは selectedValue が
-    // 変わっても再起動しない。素で参照すると開いた瞬間の値を掴んだままになり、
-    // 「一度動かしてから初期値に戻す」と value == 古い selectedValue になって通知が落ちる。
-    // rememberUpdatedState で常に最新を見る。
+    // 下の LaunchedEffect は selectedValue が変わっても再起動しないため、
+    // 素で参照すると古い値を掴んだままになる。rememberUpdatedState で常に最新を見る。
     val currentSelectedValue by rememberUpdatedState(selectedValue)
     val currentOnValueChange by rememberUpdatedState(onValueChange)
 

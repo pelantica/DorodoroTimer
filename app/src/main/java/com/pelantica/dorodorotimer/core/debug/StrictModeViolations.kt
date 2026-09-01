@@ -6,10 +6,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * StrictMode が報告した違反を、プロセスが生きている間だけ保持する。
- *
- * 永続化しない（アプリを再起動すれば消える）。デバッグビルドでの気づき用であって、
- * 記録として残すものではないため。
+ * StrictMode が報告した違反を、プロセスが生きている間だけ保持する（永続化しない）。
+ * デバッグビルドでの気づき用。
  */
 object StrictModeViolations {
 
@@ -19,10 +17,7 @@ object StrictModeViolations {
     private val _violations = MutableStateFlow<List<StrictModeViolation>>(emptyList())
     val violations: StateFlow<List<StrictModeViolation>> = _violations.asStateFlow()
 
-    /**
-     * 違反を記録する。StrictMode のリスナは専用のワーカースレッドから呼ばれるため、
-     * 呼び出しスレッドは main とは限らない（[MutableStateFlow] はスレッドセーフ）。
-     */
+    /** StrictMode のリスナは専用ワーカースレッドから呼ぶため、呼び出しスレッドは main とは限らない。 */
     fun record(violation: StrictModeViolation) {
         _violations.update { current -> (current + violation).takeLast(MAX_KEPT) }
     }

@@ -15,15 +15,8 @@ class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
     val state: StateFlow<DemoFlagsState> = _state.asStateFlow()
 
     /**
-     * マスタートグルを切り替える。
-     *
-     * OFF にするときは、ON になっている個別 ANR トグルもまとめて OFF にする
-     * （マスター OFF 中は個別 Switch が disabled になり、内部だけ ON が残ると
-     * 「次にマスターを ON にした瞬間に思わぬ事例が有効になる」ため）。
-     * 確認ダイアログは出さない代わりに、設定画面のマスターカードに常設の注記を置いている。
-     *
-     * [DemoFlagsState.restartPromptFor] は立てない。再起動プロンプトは個別トグル操作
-     * （[setAnr]）からのみ立つもので、マスター OFF は「まとめて無効化する」操作だから。
+     * マスタートグルを切り替える。OFF にするときは個別 ANR トグルもまとめて OFF にする
+     * （内部だけ ON が残ると、次にマスターを ON にした瞬間に思わぬ事例が有効になるため）。
      */
     fun setMaster(on: Boolean) {
         if (!on) {
@@ -32,7 +25,6 @@ class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
         flags.setMaster(on)
         _state.value = flags.snapshot()
         // 一括クリアでキーが実状態からズレるため、Crashlytics のカスタムキーを貼り直す。
-        // 書き込みは Crashlytics 内部のワーカーに積まれるだけでメインスレッド I/O にはならない。
         CrashReportBreadcrumbs.setDemoFlags(_state.value)
     }
 
@@ -46,9 +38,8 @@ class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
     }
 
     /**
-     * 再起動確認ダイアログを「キャンセル」で閉じる（あとで／ダイアログ外タップ／戻る操作）。
-     * [Anr.requiresRestart] のトグルは再起動するまで実際の挙動に反映されないため、
-     * 変更前の値へ書き戻して「トグルの表示＝実際に効いている状態」を保つ。
+     * 再起動確認ダイアログをキャンセルで閉じる。[Anr.requiresRestart] のトグルは再起動まで
+     * 挙動に反映されないため、変更前の値へ書き戻して「表示＝実際に効いている状態」を保つ。
      */
     fun dismissRestartPrompt() {
         val anr = _state.value.restartPromptFor ?: return
@@ -56,10 +47,7 @@ class SettingsViewModel(private val flags: DemoFlags) : ViewModel() {
         _state.value = flags.snapshot().copy(restartPromptFor = null)
     }
 
-    /**
-     * 再起動確認ダイアログを「再起動する」で閉じる。フラグは変更後の値のまま維持し、
-     * プロンプト状態だけをクリアする（[AppRestarter] の呼び出しは Context を持つ Screen 側の責務）。
-     */
+    /** 再起動確認ダイアログを「再起動する」で閉じる。フラグは変更後の値のまま維持する。 */
     fun confirmRestartPrompt() {
         _state.value = _state.value.copy(restartPromptFor = null)
     }

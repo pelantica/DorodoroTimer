@@ -8,17 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * StrictMode バナーの表示ミュート設定。
- *
- * ミュートするのは**表示だけ**。検出・[StrictModeViolations] への記録・logcat 出力は
- * 止めない。ANR デモの録画やスクショにバナーを写り込ませないための設定であって、
- * StrictMode 自体を弱める設定ではない（ポリシーごと OFF にすると、トグルを
- * SharedPreferences から読む処理が [StrictModeInstaller.install] より先に必要になり、
- * 「起動時に自分の DemoConfig.init が捕まる」自己検出デモが壊れる）。
+ * StrictMode バナーの表示ミュート設定。ミュートするのは表示だけで、検出・
+ * [StrictModeViolations] への記録・logcat 出力は止めない。StrictMode のポリシーごと
+ * OFF にする作りにすると「起動時に自分の DemoConfig.init が捕まる」自己検出デモが壊れる。
  *
  * 永続化先は demoMode と同じ prefs ファイル（[SharedPrefsDemoFlags.PREFS_NAME]）。
- * 別ファイルにすると初回ロードが起動時の DiskReadViolation を1件増やしてしまうが、
- * 同じファイルなら DemoConfig 側が既にロード済みなので追加の違反が出ない。
+ * 別ファイルにすると初回ロードが起動時の DiskReadViolation を1件増やすため。
  */
 object StrictModeBannerSettings {
 
@@ -31,9 +26,8 @@ object StrictModeBannerSettings {
     private var prefs: SharedPreferences? = null
 
     /**
-     * Application.onCreate の**末尾**で呼ぶ。先頭（DemoConfig.init より前）に置くと、
-     * この getBoolean が prefs 初回ロードの待ち役になり、起動時違反のスタックトレースの
-     * 帰属が DemoConfig.isOn からこちらへ移ってしまう。
+     * Application.onCreate の末尾で呼ぶ。DemoConfig.init より前に置くと prefs 初回ロードの
+     * 待ち役になり、起動時違反のスタックトレースの帰属がこちらへ移ってしまう。
      */
     fun init(context: Context) {
         val p = context.applicationContext

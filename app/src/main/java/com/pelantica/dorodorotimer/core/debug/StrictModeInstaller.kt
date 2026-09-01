@@ -8,32 +8,16 @@ import java.util.concurrent.Executors
 /**
  * デバッグビルドでだけ StrictMode の「ディスクI/O検出」を有効にする。
  *
- * ## なぜ自分で入れる必要があるのか
+ * ネットワークは既定でメインスレッド禁止（フレームワークが起動時に `detectNetwork()` +
+ * `penaltyDeathOnNetwork()` を入れる＝ `NetworkOnMainThreadException` の正体）だが、
+ * ディスクI/Oは既定では検出すらされない。フック自体はネットワークと同等に用意されているのに
+ * 既定ポリシーに入っておらず、正当なアクセスも多いことから OS はスイッチをアプリ側に
+ * 委ねている。このアプリはそのスイッチを入れる側に立つ。
  *
- * ネットワークは **アプリが何もしなくても既定でメインスレッド禁止** になっている。
- * フレームワークが起動時に `StrictMode.initThreadDefaults()` を呼び、targetSdk が
- * HONEYCOMB 以上なら `detectNetwork()` + `penaltyDeathOnNetwork()` を入れるため
- * （＝ `NetworkOnMainThreadException` の正体）。
- *
- * 一方 **ディスクI/Oは既定で検出すらされない**。検出のフック自体は
- * ネットワークと同じだけ用意されている（`BlockGuard.getThreadPolicy().onReadFromDisk()`
- * は `SQLiteConnection` や `SharedPreferencesImpl` から実際に呼ばれている）が、
- * 既定ポリシーに入っていないので入口で捨てられる。ログすら出ない。
- *
- * OSが「ディスクは有罪と断定できない」（ライフサイクル中の正当なアクセスが多く、
- * 速さも端末やタイミング次第）と判断して、スイッチをアプリ側に委ねているため。
- * このアプリはそのスイッチを入れる側に立つ。
- *
- * ## 既定ポリシーを壊さないための注意
- *
- * `ThreadPolicy.Builder()` を新規に作ると mask が 0 から始まるため、OSが入れてくれた
- * `penaltyDeathOnNetwork` を **消してしまう**（＝メインスレッドのネットワークが
- * 落ちなくなり、デバッグビルドの方が緩くなる）。現在のポリシーを引き継ぐ
- * `Builder(ThreadPolicy)` から始めることで、既定に「足す」形にしている。
- *
- * `Application.onCreate` の時点では既定ポリシーは適用済み
- * （`ActivityThread.handleBindApplication` が `initThreadDefaults` →
- * `callApplicationOnCreate` の順で呼ぶ）。
+ * ポリシーは `ThreadPolicy.Builder()` を新規に作らず、現在のポリシーを引き継ぐ
+ * `Builder(ThreadPolicy)` から「足す」。新規に作ると OS が入れた `penaltyDeathOnNetwork` が
+ * 消え、デバッグビルドの方がリリースより緩くなってしまう
+ * （`Application.onCreate` の時点で既定ポリシーは適用済み）。
  */
 object StrictModeInstaller {
 
@@ -44,10 +28,7 @@ object StrictModeInstaller {
         }
     }
 
-    /**
-     * メインスレッドから呼ぶこと。StrictMode のポリシーは **スレッドごと**（ThreadLocal）で、
-     * 呼んだスレッドにしか設定されない。
-     */
+    /** メインスレッドから呼ぶこと。ポリシーはスレッドごと（ThreadLocal）で、呼んだスレッドにしか設定されない。 */
     fun install() {
         if (!BuildConfig.DEBUG) return
 

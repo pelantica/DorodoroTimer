@@ -4,8 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-// トマト赤のアクセント＋暖色ニュートラルのライトテーマ。
-// ダークテーマは未対応（端末がダークでもこの配色のまま）。必要になったら darkColorScheme を足す。
+// トマト赤のアクセント＋暖色ニュートラルのライトテーマ。ダークテーマは未対応。
 private val DorodoroLightColors = lightColorScheme(
     primary = TomatoRed,
     onPrimary = WarmWhite,
@@ -14,7 +13,7 @@ private val DorodoroLightColors = lightColorScheme(
 
     secondary = WarmBrown,
     onSecondary = WarmWhite,
-    // NavigationBar の選択中インジケータがこの色。タブのピルを赤寄りにするためここに置く。
+    // NavigationBar の選択中インジケータがこの色。
     secondaryContainer = TomatoTintStrong,
     onSecondaryContainer = TomatoRedDark,
 
@@ -30,7 +29,6 @@ private val DorodoroLightColors = lightColorScheme(
     surfaceVariant = WarmVariant,
     onSurfaceVariant = WarmOnSurfaceVariant,
 
-    // surfaceContainer 系は M3 コンポーネントの既定色に効く。
     // 白カード＝Lowest、ボトムナビの帯＝surfaceContainer。
     surfaceContainerLowest = WarmWhite,
     surfaceContainerLow = WarmSurfaceLow,

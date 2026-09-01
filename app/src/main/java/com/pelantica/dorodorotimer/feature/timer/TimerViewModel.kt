@@ -57,8 +57,7 @@ class TimerViewModel(
         viewModelScope.launch {
             timerState = timerStateRepo.load()
             // 閉じている間に終わっていたら（実行中だが既に0）フェーズを送って停止に確定。
-            // この時点の currentPreset はまだ既定値なので、記録と onFinished を正しい設定時間で
-            // 行うために保存済みの preset を先に読む（下の collect が始まる前）。
+            // 記録と onFinished に正しい設定時間が要るので、保存済みの preset を先に読む。
             if (timerState.isRunning && TimerReducer.displaySeconds(timerState, now()) <= 0) {
                 currentPreset = presetRepo.preset.first()
                 recordIfFocusCompleted()
@@ -67,9 +66,9 @@ class TimerViewModel(
             }
             refreshUi()
             if (timerState.isRunning) startTicking()
-            // load 完了後に設定購読を開始（順序保証：ロード前に collector が persist しない）。
-            // 停止中で「現フェーズの満了値ちょうど」のときだけ新設定に追従し、
-            // 一時停止で途中まで減った remaining はクロバーしない。
+            // 購読はロード完了後に開始する（先に始めると復元前の状態で collector が persist してしまう）。
+            // 設定変更には「停止中で現フェーズの満了値ちょうど」のときだけ追従し、
+            // 一時停止で途中まで減った remaining は上書きしない。
             presetRepo.preset.collect { p ->
                 val atFullForPhase = !timerState.isRunning &&
                     timerState.remainingSeconds == TimerReducer.secondsFor(currentPreset, timerState.phase)
@@ -140,11 +139,7 @@ class TimerViewModel(
     /**
      * 集中フェーズの満了を1セッションとして記録する（休憩の満了・reset は記録しない）。
      * timerState が満了前（onFinished 適用前）のうちに呼ぶこと。
-     *
-     * - durationSeconds は現設定の集中時間。一時停止を挟んでも合計の集中時間は
-     *   設定値どおりなのでこれで足りる（一時停止中に設定を変えた場合だけ誤差になるが許容）。
-     * - completedAt は実際に0へ到達した時刻＝runningUntilEpochMs。アプリを閉じている間に
-     *   終わった場合でも、開き直した時刻ではなく本当の完了時刻の日付で計上される。
+     * completedAt は実際に0へ到達した時刻＝runningUntilEpochMs（閉じている間に終わっても正しい日付で計上）。
      */
     private fun recordIfFocusCompleted() {
         if (timerState.phase != TimerPhase.FOCUS) return

@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         selectedTab = intent.toDeepLinkTab() ?: Tab.TIMER
-        // 初期タブもパンくずに積む（セッションの操作履歴がここから始まる）
+        // 初期タブもパンくずに積む
         CrashReportBreadcrumbs.tabShown(selectedTab.name)
         setContent {
             DorodoroTimerTheme {
@@ -55,17 +55,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // launchMode=singleTop のため、通知タップだけでなく
-        // ランチャーからの復帰（ACTION_MAIN・data なし）でもここに来る。
-        // ディープリンクでないときはタブ指定なし＝表示中のタブを維持する
-        // （無条件に代入すると、統計タブを見ていてもタイマーに引き戻される）。
+        // launchMode=singleTop のため、ランチャーからの復帰でもここに来る。
+        // ディープリンクでないときは表示中のタブを維持する。
         intent.toDeepLinkTab()?.let(::selectTab)
     }
 
     /**
-     * タブの変更はここに一本化し、Crashlytics のパンくずに残す
-     * （ANRレポートで「直前にどの画面を触っていたか」を辿れるように）。
-     * 同じタブの再選択（下部バーの再タップ・同じタブへの通知再タップ）は積まない。
+     * タブの変更はここに一本化し、Crashlytics のパンくずに残す。同じタブの再選択は積まない。
      */
     private fun selectTab(tab: Tab) {
         if (tab == selectedTab) return
@@ -112,9 +108,8 @@ private fun DorodoroApp(selectedTab: Tab = Tab.TIMER, onSelectTab: (Tab) -> Unit
 }
 
 /**
- * dorodoro:// のディープリンクが指すタブ。ディープリンクでない（ランチャー起動など）、
- * または未知の host のときは null＝「タブの指定なし」を意味し、呼び出し側が
- * 起動時は TIMER、復帰時は現在のタブ維持、と解釈する。
+ * dorodoro:// のディープリンクが指すタブ。ディープリンクでない・未知の host のときは
+ * null＝「タブの指定なし」（起動時は TIMER、復帰時は現在のタブ維持）。
  */
 internal fun Intent?.toDeepLinkTab(): Tab? {
     val data: Uri? = this?.data

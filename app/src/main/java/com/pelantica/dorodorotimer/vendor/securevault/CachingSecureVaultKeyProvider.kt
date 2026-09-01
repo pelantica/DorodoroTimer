@@ -17,11 +17,10 @@ import kotlinx.coroutines.withContext
 
 /**
  * [ANR-04][正版] [SecureVaultKeyProvider] の実装。鍵庫（[SecureVaultService]・`:vault`）から
- * 鍵を **遅延・背面・キャッシュ** で取得する。設計意図と ANR-04（[SecureVaultKeyBootLoader]）
- * との対比は [SecureVaultKeyProvider] の KDoc を参照。
+ * 鍵を遅延・背面・キャッシュで取得する。ANR-04（[SecureVaultKeyBootLoader]）との対比は
+ * [SecureVaultKeyProvider] の KDoc を参照。
  *
- * キャッシュは2段: メモリ（[cachedFingerprint]）＋ [Context]`.filesDir` 配下の小さなファイル
- * （[cacheFile]）。生成は [mutex] で直列化して多重生成を防ぐ。
+ * キャッシュはメモリ＋ファイルの2段。生成は [mutex] で直列化して多重生成を防ぐ。
  */
 class CachingSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider {
 
@@ -37,13 +36,7 @@ class CachingSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider {
 
     /**
      * 鍵の指紋（hex 文字列）を返す。失敗時は null。
-     *
-     * 呼び出しごとの流れ:
-     *  - メモリキャッシュにあれば即返す（IPC なし・ファイルI/Oなし）。
-     *  - 無ければファイルキャッシュを見る。あればそれを読んでメモリにも積んで返す
-     *    （`:vault` を bind しない＝方針#2）。
-     *  - どちらにも無いときだけ [mutex] で直列化しつつ `:vault` を bind して
-     *    [ISecureVault.generateKey] を呼び、結果をファイル・メモリへ保存する（多重生成防止）。
+     * メモリ → ファイルの順にキャッシュを引き、どちらにも無いときだけ `:vault` を bind して生成する。
      */
     override suspend fun ensureKeyLoaded(): String? {
         cachedFingerprint?.let { return it }
@@ -73,13 +66,9 @@ class CachingSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider {
     }
 
     /**
-     * `:vault` を bind し [ISecureVault.generateKey] を呼んで指紋を取る。
-     * 呼び出し時点で既に [Dispatchers.IO] 上にいる想定（[ensureKeyLoaded] 参照）。
-     *
-     * 通常の [Context.bindService]（`onServiceConnected` はメインへ配達）を使い、
-     * 接続完了は [CountDownLatch] で**この IO スレッドが**待つ。メインを同期待ちに
-     * 使わないので、ここでブロックしている間もメインは自由に動き続ける
-     * （[SecureVaultKeyBootLoader] が onCreate のメインで同じ形の待ち合わせをするのと対照的）。
+     * `:vault` を bind し [ISecureVault.generateKey] を呼んで指紋を取る。[Dispatchers.IO] 上で
+     * 呼ばれる想定。接続完了は [CountDownLatch] で**この IO スレッドが**待つため、ブロック中も
+     * メインは自由に動き続ける（[SecureVaultKeyBootLoader] がメインで待つのと対照的）。
      */
     private fun bindAndGenerateKey(): String? {
         val remoteRef = AtomicReference<ISecureVault?>()
@@ -109,8 +98,7 @@ class CachingSecureVaultKeyProvider(context: Context) : SecureVaultKeyProvider {
                 Log.w(TAG, "vault not connected within ${CONNECT_TIMEOUT_MILLIS}ms")
                 return null
             }
-            // ここで Binder transact に入り :vault の鍵生成が返るまで待つ。待っているのは
-            // Dispatchers.IO のスレッドであってメインではないので、UI は塞がれない。
+            // Binder transact を待つのは IO スレッドなので UI は塞がれない。
             remoteRef.get()?.generateKey(SecureVaultService.DEFAULT_ALIAS)
         } catch (t: Throwable) {
             Log.w(TAG, "key load failed", t)

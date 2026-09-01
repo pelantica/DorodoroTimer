@@ -16,17 +16,12 @@ import java.util.concurrent.atomic.AtomicReference
  * [ANR-04] 起動時に鍵庫（[SecureVaultService]・`:vault` プロセス）から鍵を同期取得する
  * 「ブートローダ」。この事例の主役＝「待つ側」を Application.onCreate に置いた版。
  *
- * ## なぜ Executor 版 bindService なのか
- * 通常の `bindService(intent, conn, flags)` は `onServiceConnected` を**メインスレッド**へ配達する。
- * だが onCreate で鍵取得を待ち込むと、その配達先のメインが塞がっていて接続が永遠に来ない
- * （＝デッドロックで鍵が取れず ANR にならない）。コールバックを別スレッド（[Executors]）で
- * 受ける API 29+ の overload を使い、メインは接続完了だけ短く待ってから同期 Binder に入る。
- *
- * ## なぜ onCreate なのか（Crashlytics 回収）
+ * 通常の `bindService` は `onServiceConnected` を**メインスレッド**へ配達するため、onCreate の
+ * メインで接続を待ち込むと配達されずデッドロックする。そこでコールバックを別スレッドで受ける
+ * API 29+ の overload を使い、メインは接続完了だけ短く待ってから同期 Binder に入る。
  * メインが onCreate で長く待つと bindApplication の番犬（15 秒 × `ro.hw_timeout_multiplier`）が
- * ダイアログなしで無言 kill する。鍵生成は番犬より長く設定してあるので必ず返る前に殺され、
- * AEI に `reason=ANR` が残る（subreason はエミュ=34 BIND_APPLICATION／実機 HyperOS では 0 のことも）
- * ＝次回起動で Crashlytics が回収する。
+ * ダイアログなしで無言 kill し、ApplicationExitInfo に `reason=ANR` が残る
+ * ＝次回起動で Crashlytics が回収できる。
  */
 internal object SecureVaultKeyBootLoader {
 
@@ -37,7 +32,7 @@ internal object SecureVaultKeyBootLoader {
 
     fun loadKeyBlocking(context: Context) {
         // コールバックを別スレッドで受ける bindService overload は API 29+。
-        // 未満ではメインで待ち込むと接続が配達できずデッドロックするので、何もしない。
+        // 未満ではメインで待ち込むとデッドロックするので、何もしない。
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Log.w(TAG, "skip: background-callback bindService requires API 29+")
             return
@@ -73,7 +68,7 @@ internal object SecureVaultKeyBootLoader {
                 return
             }
             // ここでメインが Binder transact に入り、:vault の鍵生成が返るまでブロックする。
-            // 生成時間は番犬より長いので、返る前にプロセスが kill され AEI に reason=ANR が残る。
+            // 生成時間は番犬より長いので、返る前にプロセスが kill される。
             remoteRef.get()?.generateKey(SecureVaultService.DEFAULT_ALIAS)
         } catch (t: Throwable) {
             Log.w(TAG, "startup key load failed", t)

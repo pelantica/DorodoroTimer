@@ -8,10 +8,10 @@ import java.security.MessageDigest
  * `startForegroundService()` を呼んだ後、規定時間内に `startForeground()` を呼ばないと
  * `ForegroundServiceDidNotStartInTimeException` を投げてアプリを強制終了する
  * （厳密には ANR ではなく RemoteServiceException 系の**クラッシュ**。README の位置づけ参照）。
- * ドキュメントが言う「5秒ルール」はアプリが守るべき契約であって、システムが実際に kill する
- * までの猶予とは別物（[BLOCK_MILLIS] の KDoc 参照）。
- * demoMode ON のとき [AmbientSoundService.startPlayback] が `startForeground` の**直前**に
- * これを呼び、故意に締切を破らせる。
+ * 観測した環境（API 37 エミュレータ）では締切は前面起動でも背面起動でも効き、背面はダイアログなしの
+ * 無言 kill、前面は先に Service 実行 ANR のダイアログが出てから kill された。猶予やダイアログの
+ * 有無は API レベル・端末で変わりうる。
+ * demoMode ON のとき [AmbientSoundService.startPlayback] が `startForeground` の直前にこれを呼ぶ。
  *
  * 処方: `startForeground` を最初に呼び、重い初期化はその後（または別スレッド）へ。
  */
@@ -20,24 +20,10 @@ internal object FgsStartupWork {
     /**
      * [ANR-FGS] メインをブロックする時間（ミリ秒）。
      *
-     * 「startForeground 5秒ルール」と呼ばれるが、5秒は**アプリが守るべき契約**の値であって、
-     * システムが実際に kill するまでの猶予とは別物。
-     *
-     * 実測環境: AVD Pixel_10 / Android 17（API 37）エミュレータ。
-     * 他の API レベル・実機では値も挙動も変わりうるので、下記はこの環境での観測として読むこと。
-     *  - 猶予は `service_start_foreground_timeout_ms`（`adb shell dumpsys activity settings`）で
-     *    決まり、この環境では **30秒**。
-     *  - 締切は**前面(TOP)起動でも背面起動でも同じように効く**。違うのは破ったときの見え方:
-     *     - 背面: 30秒で `ForegroundServiceDidNotStartInTimeException` → ANR ダイアログなしの無言 kill
-     *       （`data_app_crash` と ApplicationExitInfo `reason=4` に残る）
-     *     - 前面: 先に **20秒で Service 実行 ANR（ダイアログ付き）** が出て、その後 30秒で
-     *       同じ例外により kill される（AEI `importance=100`）
-     *  - logcat の `allowWiu` は **FGS を起動してよいかの判定**であって、`startForeground`
-     *    締切の免除ではない。
-     *
-     * そこで締切の30秒を確実に超える **35秒**を焼く。**反復回数ではなく時間基準**にするのが肝:
-     * 端末が速くても保持時間は変わらず確実に閾値を破る（固定回数ループは高性能端末で一瞬で終わり
-     * 発火しない）。考え方は [com.pelantica.dorodorotimer.data.local.stats.StatsStore] の重り（ANR-01/03）と同じ。
+     * 「startForeground 5秒ルール」の5秒はアプリが守るべき契約の値で、システムが実際に kill する
+     * までの猶予は別物（`service_start_foreground_timeout_ms` で決まり端末依存。30秒の環境もある）。
+     * その猶予を確実に超える値にしてある。反復回数ではなく時間基準なので、端末が速くても
+     * ブロック時間は変わらず確実に締切を破る。
      */
     const val BLOCK_MILLIS = 35_000L
 
@@ -46,19 +32,15 @@ internal object FgsStartupWork {
 
     private val seed = "dorodoro-fgs-startup".toByteArray()
 
-    /**
-     * DCE 回避用の sink。結果を観測させ、CPU を焼くループが最適化で消える余地を無くす
-     * （純計算＋結果未使用は理論上 ART/JIT に削られうる＝実負荷が消えると発火しない）。
-     */
+    /** DCE 回避用の sink。結果を観測させ、CPU を焼くループが最適化で消えないようにする。 */
     @Volatile
     private var sink: ByteArray? = null
 
     /**
-     * [ANR-FGS] 呼び出しスレッド（メイン）を [blockMillis] のあいだ**実際に CPU を焼いて**ブロックする。
-     * `Thread.sleep` ではなく実計算にするのは、トレース上でもメインが本当に働いている（busy寄りの
-     * waiting）ことが見えるため。時間源は [System.nanoTime]（単調・素の JVM で動きテストからも使える）。
+     * [ANR-FGS] 呼び出しスレッド（メイン）を [blockMillis] のあいだ実際に CPU を焼いてブロックする。
+     * `Thread.sleep` ではなく実計算にするのは、トレース上でもメインが働いている様子が見えるため。
      *
-     * @param blockMillis ブロックする最低時間。テストは短い値を渡して軽量に検証する。
+     * @param blockMillis ブロックする最低時間。テストは短い値を渡す。
      */
     fun blockMainUntilDeadline(blockMillis: Long = BLOCK_MILLIS) {
         val md = MessageDigest.getInstance("SHA-256")

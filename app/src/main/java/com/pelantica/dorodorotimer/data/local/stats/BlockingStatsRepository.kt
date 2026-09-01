@@ -6,20 +6,13 @@ import com.pelantica.dorodorotimer.domain.repository.StatsRepository
 /**
  * demoMode ON 用の「守らない」実装（事例① ANR-01）。
  *
- * 生SQLite（SQLiteOpenHelper）は呼んだスレッドで同期実行するため、
- * この suspend 関数を Main スレッドから呼ぶと I/O ＋ 重い集計がメインを専有し ANR になる。
- * withContext(IO) を意図的に挿入しないことがポイント。
- *
- * 投入するデータ・行数・書き込み方（1件ずつ非トランザクション）は [DemoStatsSeed] ＋
- * [RawSqliteStatsHelper.reseedForDemo] で [OffloadedStatsRepository] と完全に共通化してある。
- * **両実装の差は「ライブラリがスレッドを管理してくれるか否か」だけ**で、
- * データそのものや作業量には一切差をつけない。これが事例①の対比の肝。
- *
- * 対比: [OffloadedStatsRepository]（Room の suspend DAO）は「守ってくれる」側。
+ * 生SQLite（SQLiteOpenHelper）は呼んだスレッドで同期実行するため、この suspend 関数を
+ * Main から呼ぶと重I/Oがメインを専有し ANR になる（withContext(IO) を意図的に置かない）。
+ * 対比相手は [OffloadedStatsRepository]（Room・「守ってくれる」側）。作業量は [DemoStatsSeed] 参照。
  */
 class BlockingStatsRepository(
     private val helper: RawSqliteStatsHelper,
-    /** デモ用シード行数。既定は実機校正済みの値、テストは小さい値を渡して軽量に検証する。 */
+    /** デモ用シード行数。テストは小さい値を渡す。 */
     private val seedRowCount: Int = DemoStatsSeed.SEED_ROW_COUNT,
 ) : StatsRepository {
 
