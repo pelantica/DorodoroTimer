@@ -14,3 +14,6 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Claude Code のセッション作業ディレクトリ（worktree 等）
+.claude/
