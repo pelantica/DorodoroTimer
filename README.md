@@ -88,7 +88,7 @@ adb shell dumpsys activity exit-info com.pelantica.dorodorotimer
 3. 40秒後にタイマー終了アラームが鳴り、`AmbientSoundService`（雨音FGS）が背面から起動される。そこから**35秒放置**すると `ForegroundServiceDidNotStartInTimeException` でクラッシュする（ANRダイアログは出ない無言 kill）
 4. **前面**から確認したい場合は、タイマー画面の **「🌧️ 雨音を鳴らす」** ボタンでも同じ例外が発生する。ただしこちらは**先に20秒でService実行ANR（ダイアログ付き）が出た後**にクラッシュする点が背面経路と異なる
 
-CFP（Call for Proposals＝登壇応募）外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は社内バックログに記録済み。採否は後日選定。
+CFP（Call for Proposals＝登壇応募）外の追加候補（重い同期計算 / Compose 再コンポーズ / ContentProvider 隠れ初期化 / 同期 Binder / wait-notify / commit() / Bitmap decode / 接続プール枯渇 / nativePollOnce の罠 等）は別途バックログに控えてある。採否は後日選定。
 
 ## 永続化（事例①の核：ライブラリのスレッド管理を見極める）
 
