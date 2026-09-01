@@ -41,7 +41,7 @@ object DemoConfig {
         return f.isMasterOn() && f.isOn(anr)
     }
 
-    /** 後方互換: 旧コードの DemoConfig.enabled は master と同義。 */
+    /** master トグルへのショートハンド。 */
     var enabled: Boolean
         get() = flags?.isMasterOn() ?: false
         set(value) { flags?.setMaster(value) }

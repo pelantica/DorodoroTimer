@@ -22,7 +22,7 @@ import java.security.MessageDigest
  * - ⚠️ `am force-stop` はジョブ・アラームごと消えるので使わない。ANR 死直後の起動は
  *   [StartupOrigin.lastExitWasAnr] の安全弁で軽くなる＝普通に開ける。最終脱出は `pm clear`。
  *
- * ## 校正（エミュ API 37 / multiplier=1 / 2026-08-16 実測）
+ * ## 校正
  * ANR-02 実測 7.8〜8.5秒 + [WORK_MILLIS] 10.5秒 ≒ 18.5秒 > 締切15秒
  * （打ち切りは Start proc から 15.3〜15.4秒＝締切ちょうど。WORK_MILLIS は越えるための
  * マージンであり全部は消費されない）。端末が変わったら「ANR-02 実測 + WORK_MILLIS が
@@ -37,7 +37,7 @@ internal object UnsentReportIndexInitializer {
      * この事例で意味があるのが「何回ハッシュしたか」ではなく「締切まで何秒残っているか」だから
      * （速い端末はハッシュを多く回すだけで、保持時間はこの値のまま＝端末が変わっても意味が変わらない。
      * [com.pelantica.dorodorotimer.data.local.stats.StatsStore.INIT_WORK_MILLIS] と同じ考え方）。
-     * 校正の根拠はこのクラスの KDoc (e)。
+     * 校正の手順はこのクラスの KDoc「校正」。
      */
     internal const val WORK_MILLIS = 10_500L
 

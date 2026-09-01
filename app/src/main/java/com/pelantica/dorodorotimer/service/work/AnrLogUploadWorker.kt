@@ -12,7 +12,7 @@ import androidx.work.WorkerParameters
  *  ワーカースレッドで正しく非同期に行われるため、これがメインを固めることはない。
  *  起動 ANR の真犯人は Application.onCreate（ANR-02）。冷えたプロセス（アプリが
  *  BG で終了した状態）に WorkManager がジョブを投げると新プロセスが立ち上がり、
- *  その onCreate で ANR-02 の重い初期化が起動枠（約20秒）内で走ることで起動ANRになる。
+ *  その onCreate で ANR-02 の重い初期化が bindApplication の締切内で走ることで起動ANRになる。
  *
  *  皮肉: WorkManager の定番用途である「ログ送信キュー」自体は完全に正しく動く。
  *  にもかかわらず、そのジョブがプロセスを起こすことで起動ANRを誘発する。
@@ -29,9 +29,7 @@ class AnrLogUploadWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        // [ANR-05] ANRログ送信は正しく軽量に BG スレッドで実行される＝無罪。
-        //  真犯人はこのメソッドではなく、このジョブが冷えたプロセスを起こすことで
-        //  Application.onCreate（ANR-02）が起動枠内で走ること。
+        // [ANR-05] ここは軽量に BG スレッドで実行される＝無罪（真犯人はクラス KDoc 参照）。
         AnrLogUploader.upload(dummyReports())
         return Result.success()
     }

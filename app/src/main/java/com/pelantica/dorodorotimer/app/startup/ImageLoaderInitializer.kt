@@ -20,10 +20,9 @@ internal object ImageLoaderInitializer {
     private const val TAG = "ImageLoaderInitializer"
 
     /**
-     * [ANR-02] 同期ファイルI/Oの反復回数。
-     * 実機校正の記録（エミュ API 36 / 2026-07-30、1,200回・8KBペイロード）: 約0.6〜0.7秒
-     * （3回計測: 595ms/615ms/647ms）。[CrashReportingInitializer.IO_ITERATIONS] と反復回数は同じだが
-     * ペイロードが大きい分やや重い。端末が変われば再校正する。
+     * [ANR-02] 同期ファイルI/Oの反復回数。8KBペイロードで、エミュ API 36 で約0.6〜0.7秒。
+     * [CrashReportingInitializer.IO_ITERATIONS] と反復回数は同じだがペイロードが大きい分やや重い。
+     * 端末が変われば再校正する。
      */
     internal const val IO_ITERATIONS = 1_200
 

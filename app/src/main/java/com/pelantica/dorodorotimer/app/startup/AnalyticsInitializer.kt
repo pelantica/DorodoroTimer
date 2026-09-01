@@ -16,13 +16,7 @@ internal object AnalyticsInitializer {
     private const val TAG = "AnalyticsInitializer"
 
     /**
-     * [ANR-02] ハッシュチェーンのラウンド数。
-     *
-     * 実機校正の記録（エミュ API 36 (sdk_gphone16k_arm64) / 2026-07-30）:
-     *  - 単純な加算ループ100M回（旧実装）は JIT に最適化され実質0秒で不発（ON 1709ms / OFF 1899ms、差なし）。
-     *  - `hashChain` 180万ラウンドで約1.4〜1.7秒。他5つのSDK風初期化と合わせても合計約5秒に届かず
-     *    demo端末のばらつきに対する安全マージンが薄かったため、200万ラウンドに引き上げた。
-     *  - 200万ラウンドで約1.6〜1.8秒（3回計測: 1596ms/1707ms/1816ms）。この値を採用。
+     * [ANR-02] ハッシュチェーンのラウンド数。エミュ API 36 で約1.6〜1.8秒になる値。
      * 端末が変われば再校正する（この定数だけ変えればよい）。
      */
     internal const val HASH_ROUNDS = 2_000_000

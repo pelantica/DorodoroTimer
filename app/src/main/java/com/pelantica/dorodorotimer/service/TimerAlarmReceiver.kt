@@ -18,8 +18,7 @@ class TimerAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         Log.d(TAG, "onReceive action=${intent?.action}")
         if (intent == null || intent.action != ACTION_TIMER_FINISHED) return
-        // [ANR-06] demoMode ON のとき、ここで重い同期処理（DB集計やsleep等）を走らせると
-        //  onReceive がメインを固めて BroadcastReceiver ANR を再現できる。今回は正版＝即通知のみ。
+        // [ANR-06] 正版はここを素通りして即通知するだけ。demoMode ON のときだけ下を通る。
         if (DemoConfig.isOn(Anr.ANR_06)) {
             // [ANR-06] onReceive はメインで動く。ここで同期重処理をすると受信枠超過で ANR になる。
             //  処方: goAsync() で PendingResult を確保しつつ重処理を別スレッドへ逃がした後
@@ -30,10 +29,13 @@ class TimerAlarmReceiver : BroadcastReceiver() {
         TimerEndNotifications.notifyFinished(context, phase)
         // [ANR-FGS] demoMode ON のとき、タイマー終了（ユーザーは別アプリにいる＝**背面**のことが多い）を
         //  機に休憩用の雨音を自動起動する。この onReceive は setAlarmClock 由来なので、背面でも
-        //  FGS 起動が一時的に許可される（起動免除）。だが AmbientSoundService は startForeground の前に
-        //  重い処理を挟む（FgsStartupWork）ため、背面起動では猶予（ドキュメント5秒／実装約10秒）内に
-        //  startForeground できず ForegroundServiceDidNotStartInTimeException で kill される。
-        //  ＝前面ボタン起動（while-in-use 免除）では出ず、この背面自動起動でだけ発火するのが肝。
+        //  FGS の**起動**が一時的に許可される（logcat の allowWiu はこの起動可否の判定であって、
+        //  startForeground 締切の免除ではない）。だが AmbientSoundService は startForeground の前に
+        //  35秒ブロックする（FgsStartupWork）ため、猶予（ドキュメント上の契約5秒／Android 17・
+        //  API 37 エミュ実測30秒）内に startForeground できず
+        //  ForegroundServiceDidNotStartInTimeException で kill される。
+        //  締切は前面起動でも効くが、この背面経路はダイアログが出ずに無言で落ちるのが特徴
+        //  （前面は先に Service 実行 ANR のダイアログが出る。FgsStartupWork.BLOCK_MILLIS の KDoc 参照）。
         //  処方: startForeground を先に呼び、重い初期化は後（別スレッド）へ。
         if (DemoConfig.isOn(Anr.ANR_FGS)) {
             ContextCompat.startForegroundService(

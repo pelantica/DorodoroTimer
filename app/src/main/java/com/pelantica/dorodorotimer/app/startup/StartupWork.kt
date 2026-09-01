@@ -17,8 +17,8 @@ internal object StartupWork {
     /**
      * [ANR-02] CPU バウンドな「ハッシュチェーン」。`digest = SHA256(digest)` を [rounds] 回繰り返す。
      *
-     * 単純な加算ループ（`for (i in 0 until N) sum += i`）は JIT に定数畳み込みされて実質0秒になり、
-     * 旧実装では実機で ON/OFF の差が出なかった（ANR-02 再校正前の実測: ON 1709ms / OFF 1899ms）。
+     * 単純な加算ループ（`for (i in 0 until N) sum += i`）にしないのは、JIT に定数畳み込みされて
+     * 実質0秒になり、実機で ON/OFF の差が出なくなるため（実測: ON 1709ms / OFF 1899ms＝差なし）。
      * ハッシュチェーンは各ラウンドの出力が前ラウンドの digest に依存するため、定数畳み込みも
      * 並列化もできず、最終 digest を呼び出し元が使う（ログに出す）ことでデッドコード除去もされない。
      *

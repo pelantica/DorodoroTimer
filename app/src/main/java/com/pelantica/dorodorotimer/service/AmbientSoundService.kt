@@ -64,11 +64,11 @@ class AmbientSoundService : Service() {
 
     private fun startPlayback() {
         // [ANR-FGS] demoMode ON のとき、startForeground の**前**にメインで重い処理を挟んで
-        //  startForegroundService() からの猶予内に startForeground できなくする。ただし
-        //  **kill されるのは背面起動のときだけ**: 前面(TOP)からの起動は while-in-use 扱いで締切が
-        //  免除され、遅れても kill されない（logcat は startForegroundDelayMs を記録するだけ）。
-        //  この事例は TimerAlarmReceiver（タイマー終了＝背面）からの自動起動で
-        //  ForegroundServiceDidNotStartInTimeException として発火する。
+        //  startForegroundService() からの猶予内に startForeground できなくする。
+        //  締切は**前面起動でも背面起動でも効く**（Android 17・API 37 エミュでの実測。観測環境と
+        //  内訳は FgsStartupWork.BLOCK_MILLIS の KDoc）。違うのは破ったときの見え方で、
+        //  背面はダイアログなしの無言 kill、前面は先に Service 実行 ANR のダイアログが出てから kill。
+        //  この事例の主経路は TimerAlarmReceiver（タイマー終了＝背面）からの自動起動。
         //  OFF（正版）は下の startForeground を最初に呼ぶ従来どおりの正しい順序＝一切ブロックしない。
         //  処方: startForeground を先に呼び、重い初期化はその後（または別スレッド）へ。
         if (DemoConfig.isOn(Anr.ANR_FGS)) {

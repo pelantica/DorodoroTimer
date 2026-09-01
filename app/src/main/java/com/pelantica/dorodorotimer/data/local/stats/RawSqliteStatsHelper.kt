@@ -30,8 +30,7 @@ class RawSqliteStatsHelper(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // デモ用DBなので破壊的でよい。旧テーブル名（focus_sessions、Room側と紛らわしいため改名した）
-        // が残っていれば併せて掃除する。
+        // デモ用DBなので破壊的でよい。旧テーブル名が残っていれば併せて掃除する。
         db.execSQL("DROP TABLE IF EXISTS $TABLE_NAME")
         db.execSQL("DROP TABLE IF EXISTS $LEGACY_TABLE_NAME")
         onCreate(db)
@@ -57,13 +56,12 @@ class RawSqliteStatsHelper(context: Context) :
      *
      * [BlockingStatsRepository.dailyStats]（Main起点、withContext なし）から呼ばれるため、
      * この重い非トランザクションI/Oがそのままメインスレッドを専有し ANR を誘発する。
-     * 対比: [OffloadedStatsRepository] は同じ [DemoStatsSeed] を使いつつ、Room suspend DAO で
-     * withContext(IO) の中に同じ非トランザクション・1件ずつ書き込みを実行し、ANRしない。
+     * 対比: [OffloadedStatsRepository] は同じ [DemoStatsSeed] を、同じ非トランザクション・
+     * 1件ずつの書き込みで投入するが、Room の suspend DAO 経由なので ANR しない。
      *
-     * **毎回入れ直すのは登壇デモの再現性のため**。「空のときだけ」にすると初回しか ANR せず、
+     * **毎回入れ直すのは再現性のため**。「空のときだけ」にすると初回しか ANR せず、
      * しかも ANR でプロセスが落ちると中途半端な行数が残って以後まったく再現しなくなる
-     * （実機で確認済み: 2166行が残り、集計のみ 8ms で完了して不発になった）。
-     * 毎回リセットすることで、統計タブを開くたびに同じ所要時間で確実に再現できる。
+     * （実機では 2166行が残り、集計のみ 8ms で完了して不発になった）。
      *
      * @param rowCount シード行数。実機ANR計測で校正するためデフォルト引数化してある
      *   （[DemoStatsSeed.SEED_ROW_COUNT] を変えるだけで負荷を調整できる）。テストは小さい値でロジックのみ検証する。

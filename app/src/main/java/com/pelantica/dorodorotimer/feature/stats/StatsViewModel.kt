@@ -66,12 +66,11 @@ class StatsViewModel(
         val demoMode = isDemoMode()
         _uiState.value = _uiState.value.copy(isDemoMode = demoMode, isDemoLoading = demoMode)
 
-        // [ANR-04][正版] 集中記録を復号する鍵庫の鍵は、下の統計読み込みとは別の launch で
+        // [ANR-04][正版] 集中記録を復号する鍵庫の鍵を、統計読み込みとは別の launch で
         // 背面・キャッシュ・遅延ロードする。onCreate で同期に取る ANR-04（SecureVaultKeyBootLoader）
         // と対照的に、実際に必要になった時点（この画面を開いたとき）でだけ読みにいき、
-        // かつ統計の描画をここで待たせない（UI をブロックしない）。
-        // ANR-04 を撃っているとき（ON）は onCreate 側が発火点なので、正版はここでは走らせない。
-        // OFF＝リリース通常時だけ、正しい取り方（別launch・背面・キャッシュ・遅延）で鍵を読む
+        // 統計の描画をここで待たせない。
+        // ANR-04 が ON のときは onCreate 側が発火点なので、正版はここでは走らせない
         // ＝同じトグルで ANR版（onCreate）と正版（ここ）が対になる。
         if (!DemoConfig.isOn(Anr.ANR_04)) {
             viewModelScope.launch {

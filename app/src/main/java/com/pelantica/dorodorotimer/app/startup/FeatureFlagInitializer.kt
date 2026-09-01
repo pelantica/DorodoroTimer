@@ -15,9 +15,8 @@ internal object FeatureFlagInitializer {
     private const val TAG = "FeatureFlagInitializer"
 
     /**
-     * [ANR-02] ハッシュチェーンのラウンド数。[AnalyticsInitializer.HASH_ROUNDS] と同じ値・同じ校正記録。
-     * 実機校正の記録（エミュ API 36 / 2026-07-30、200万ラウンド）: 約1.5〜1.9秒
-     * （3回計測: 1469ms/1492ms/1945ms）。端末が変われば再校正する。
+     * [ANR-02] ハッシュチェーンのラウンド数。[AnalyticsInitializer.HASH_ROUNDS] と同じ値で、
+     * エミュ API 36 で約1.5〜1.9秒。端末が変われば再校正する。
      */
     internal const val HASH_ROUNDS = 2_000_000
 

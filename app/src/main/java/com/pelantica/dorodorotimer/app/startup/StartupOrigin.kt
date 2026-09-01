@@ -20,7 +20,6 @@ import android.util.Log
  * 痕跡は ApplicationExitInfo（reason=6 (ANR) / subreason=34）と、次回起動時に
  * Crashlytics が回収するレポートだけになる（エミュ API 37 実測: Start proc から
  * 15.3〜15.4秒で打ち切り。再現しないときはまず multiplier を確認）。
- * 実測の詳細・経緯はスライド repo の NOTES.md に記録。
  */
 internal object StartupOrigin {
 
