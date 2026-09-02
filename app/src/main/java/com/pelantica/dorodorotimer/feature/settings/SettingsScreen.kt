@@ -50,8 +50,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    // StrictMode バナーは demoMode（ViewModel が扱うフラグ）と独立したデバッグ基盤なので、
-    // バナー本体と同じくシングルトンを直接購読する（ステートレスな Content には値で渡す）。
+    // StrictMode バナーは demoMode と独立したデバッグ基盤なので、シングルトンを直接購読する。
     val strictModeBannerMuted by StrictModeBannerSettings.muted.collectAsState()
     val context = LocalContext.current
     SettingsContent(
@@ -104,8 +103,6 @@ fun SettingsContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    // マスターOFFは確認ダイアログを出さず個別トグルを一括クリアするので、
-                    // 挙動を常設の注記で先出ししておく（モーダルや Snackbar は使わない）。
                     Text(
                         text = stringResource(R.string.settings_demo_master_restart_note),
                         style = MaterialTheme.typography.bodySmall,
@@ -163,7 +160,7 @@ fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 開発ツールセクション（demoMode とは独立。ANR トグルと混ざらないよう節を分ける）
+        // 開発ツールセクション（demoMode とは独立）
         Text(
             text = stringResource(R.string.settings_devtools_section_title),
             style = MaterialTheme.typography.labelMedium,

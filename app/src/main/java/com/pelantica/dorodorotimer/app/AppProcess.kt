@@ -7,16 +7,11 @@ import android.os.Build
 import android.os.Process
 
 /**
- * 実行中のプロセスがアプリの**メインプロセス**かどうかを判定する。
+ * 実行中のプロセスがアプリのメインプロセスかどうかを判定する。
  *
- * [ANR-04] で鍵庫を `android:process=":vault"` に置いたことで、このアプリは複数プロセスになった。
- * `Application` のサブクラスは**プロセスごとに1インスタンス生成され、onCreate も各プロセスで走る**
- * ——これは見落としやすい落とし穴で、放っておくと `:vault` プロセスでも Koin 起動・
- * StrictMode 導入・起動時初期化（ANR-02/03/05 の仕掛け）が丸ごと走ってしまう。
- * 別プロセスで重い初期化が走ると `:vault` の起動が遅れ、bind の完了も遅れて
- * ANR-04 の再現が濁る（どのプロセスのトレースを読んでいるのかも分からなくなる）。
- *
- * なので [DorodoroApplication] は、メインプロセス以外では何もせずに抜ける。
+ * [ANR-04] の鍵庫が `android:process=":vault"` にあるためこのアプリは複数プロセスで、
+ * `Application.onCreate` はプロセスごとに走る。放っておくと `:vault` でも Koin 起動や
+ * 起動時初期化が丸ごと再実行されるので、[DorodoroApplication] はメインプロセス以外では即抜ける。
  */
 internal object AppProcess {
 
@@ -30,8 +25,8 @@ internal object AppProcess {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             Application.getProcessName()
         } else {
-            // API 26-27 には Application.getProcessName() が無い。この用途（自プロセスの名前）なら
-            // getRunningAppProcesses でも取れる（他アプリの一覧が取れなくなる制限は Q 以降）。
+            // API 26-27 には Application.getProcessName() が無い。自プロセスの名前なら
+            // getRunningAppProcesses で取れる。
             context.getSystemService(ActivityManager::class.java)
                 ?.runningAppProcesses
                 ?.firstOrNull { it.pid == Process.myPid() }

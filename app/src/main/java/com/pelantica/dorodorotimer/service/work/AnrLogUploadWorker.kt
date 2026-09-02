@@ -8,20 +8,10 @@ import androidx.work.WorkerParameters
 /**
  * ANR/クラッシュのテレメトリを送信するバックグラウンドワーカー。
  *
- * [ANR-05] doWork 自体は無実 = 軽量に保つ。ANRログ送信は WorkManager の
- *  ワーカースレッドで正しく非同期に行われるため、これがメインを固めることはない。
- *  起動 ANR の真犯人は Application.onCreate（ANR-02）。冷えたプロセス（アプリが
- *  BG で終了した状態）に WorkManager がジョブを投げると新プロセスが立ち上がり、
- *  その onCreate で ANR-02 の重い初期化が bindApplication の締切内で走ることで起動ANRになる。
- *
- *  皮肉: WorkManager の定番用途である「ログ送信キュー」自体は完全に正しく動く。
- *  にもかかわらず、そのジョブがプロセスを起こすことで起動ANRを誘発する。
- *
- *  連結シナリオ: ANR-02 & ANR-05 の両方を ON にしてアプリを BG に落とし（必要なら
- *  プロセスを kill し）、しばらく待つと WorkManager がジョブを起動 → 冷たい起動 →
- *  ANR-02 の重い onCreate → ANR。
- *
- *  処方: doWork は正しく軽量に保ち（本クラスはその模範）、ANR-02 を直して連結を断つ。
+ * [ANR-05] doWork 自体は無実＝ワーカースレッドで軽量に動く。真犯人は Application.onCreate
+ *  （ANR-02）: 冷えたプロセスに WorkManager がジョブを投げると新プロセスが立ち上がり、
+ *  その onCreate の重い初期化が起動 ANR になる。
+ *  処方: doWork は軽量に保ち、ANR-02 を直して連結を断つ。再現手順は README を参照。
  */
 class AnrLogUploadWorker(
     appContext: Context,

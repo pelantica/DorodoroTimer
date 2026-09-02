@@ -9,11 +9,7 @@ data class DemoFlagsState(
     val perAnr: Map<Anr, Boolean>,
     /** 直近トグルした [Anr.requiresRestart] == true の事例。非null の間、再起動を促すダイアログを表示する。 */
     val restartPromptFor: Anr? = null,
-    /**
-     * [restartPromptFor] のトグルを変更する直前の値。ダイアログをキャンセルしたときに
-     * この値へ書き戻すことで、再起動しない限り UI の見た目と実際の挙動を一致させる。
-     * [restartPromptFor] が null のときは未使用。
-     */
+    /** [restartPromptFor] のトグル変更前の値。ダイアログをキャンセルしたときにこの値へ書き戻す。 */
     val restartPromptPreviousValue: Boolean = false,
 )
 
@@ -28,11 +24,8 @@ interface DemoFlags {
 }
 
 /**
- * SharedPreferences を使った永続化実装。
- * - prefs 名: "demo_flags"
- * - master キー: "demo_master"
- * - 各 ANR キー: `anr.name.lowercase()` (例: "anr_01")
- * - 既定 false。書き込みは apply()（commit() は ANR 事例のため使わない）。
+ * SharedPreferences を使った永続化実装。キーは "demo_master" と `anr.name.lowercase()`、
+ * 既定 false。書き込みは apply()（commit() は ANR 事例のため使わない）。
  */
 class SharedPrefsDemoFlags(context: Context) : DemoFlags {
 

@@ -45,22 +45,17 @@ private val BannerHorizontalPadding = 16.dp
 private val BannerVerticalPadding = 8.dp
 
 /**
- * StrictMode が検出した違反を画面上部に出すバナー。デバッグビルドでしか違反が
- * 記録されないため、リリースでは何も表示されない（[StrictModeViolations] が常に空）。
- *
- * ANR 再現トグル（demoMode）とは独立していて、トグルが全部 OFF でも動く。
- * 「仕込んだ ANR」ではなく「メインスレッドI/Oに気づくための仕掛け」なので、
- * `[ANR-xx]` マーカーは付けない。
+ * StrictMode が検出した違反を画面上部に出すバナー。違反はデバッグビルドでしか
+ * 記録されないため、リリースでは何も表示されない。demoMode とは独立して動く。
  */
 @Composable
 fun StrictModeBanner(modifier: Modifier = Modifier) {
-    // ミュート中は表示だけ止める（検出・記録・logcat は続いている）。デモ録画用。
+    // ミュート中は表示だけ止める（検出・記録・logcat は続いている）。
     val muted by StrictModeBannerSettings.muted.collectAsState()
     if (muted) return
 
     val violations by StrictModeViolations.violations.collectAsState()
-    // ✕ を押した時点の件数。以降に新しい違反が増えたらまた出す
-    // （消したまま二度と出ないと、あとから踏んだ違反に気づけない）。
+    // ✕ を押した時点の件数。以降に新しい違反が増えたらまた出す。
     var dismissedAt by remember { mutableIntStateOf(0) }
     if (violations.size <= dismissedAt) return
 
@@ -144,9 +139,8 @@ private fun StrictModeBannerContent(
 }
 
 /**
- * 違反の一覧。折りたたみ状態では「番号・種類・犯人フレーム（自分のコードの最初の行）」
- * だけの省略表示にし、タップで Android が出力したスタックトレース原文に展開する。
- * 展開後を整形しないのは、「どのフレームが自分のコードか」を原文で読む練習のため。
+ * 違反の一覧。折りたたみ状態では番号・種類・犯人フレームだけの省略表示にし、
+ * タップでスタックトレース原文に展開する。
  */
 @Composable
 private fun StrictModeDetailDialog(
@@ -154,10 +148,9 @@ private fun StrictModeDetailDialog(
     onClear: () -> Unit,
     onClose: () -> Unit,
 ) {
-    // 開いた時点のスナップショットで固定する。表示中に新しい違反が来ると
-    // 「新しい順」の index がずれて、展開中の項目が別の違反にすり替わるため。
+    // 開いた時点のスナップショットで固定する（表示中に違反が増えると index がずれるため）。
     val newestFirst = remember { violations.asReversed().toList() }
-    // 展開中の項目（newestFirst の index）。1件だけなら展開の手間を省いて開いておく。
+    // 展開中の項目（newestFirst の index）。1件だけなら最初から開いておく。
     var expandedIndices by remember {
         mutableStateOf(if (newestFirst.size == 1) setOf(0) else emptySet<Int>())
     }
@@ -170,7 +163,7 @@ private fun StrictModeDetailDialog(
                     .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // 新しいものが上（直前の操作で踏んだ違反が先頭）。番号は古い順に #1〜。
+                // 新しいものが上。番号は古い順に #1〜。
                 newestFirst.forEachIndexed { index, violation ->
                     if (index > 0) HorizontalDivider()
                     val isExpanded = index in expandedIndices
@@ -235,15 +228,12 @@ private fun StrictModeDetailDialog(
     )
 }
 
-/**
- * 自分のコードのフレーム。パッケージ名は applicationId ではなくコードのルートパッケージ
- * （debug ビルドで suffix が付いても変わらない）。リネーム時はここも追従すること。
- */
+/** 自分のコードのフレームの接頭辞（applicationId ではなくコードのルートパッケージ）。 */
 private const val APP_FRAME_PREFIX = "at com.pelantica.dorodorotimer"
 
 /**
  * 省略表示に使う「犯人フレーム」＝トレース中で最初に現れる自分のコードの行。
- * 自分のフレームが無い場合（フレームワーク内で完結する違反）は先頭フレームで代用する。
+ * 自分のフレームが無い場合は先頭フレームで代用する。
  */
 private fun StrictModeViolation.culpritFrame(): String {
     val frames = detail.lines().map { it.trim() }

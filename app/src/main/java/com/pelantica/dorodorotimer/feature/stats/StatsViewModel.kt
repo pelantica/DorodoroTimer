@@ -12,18 +12,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * StatsScreen の ViewModel。
+ * StatsScreen の ViewModel。読み口を2本持つ:
+ * - [realRepo]: 実データ。常に安全な Room 経路が注入される。
+ * - [demoRepo]: [ANR-01] の差し替え点。ANR-01 OFF なら Room 版、ON なら生SQLite の
+ *   同期実行版が注入され、viewModelScope（= Main）で走って ANR を誘発する。
  *
- * 読み口を2本持つ:
- * - [realRepo]: 実データ（タイマーで完了したセッション）。常に安全な Room 経路が注入され、
- *   demoMode や ANR-01 の状態に関係なく正しい値を返す。
- * - [demoRepo]: ANR-01 の差し替え点。demoMode ON のときだけ読み、デモ用シードの集計を返す。
- *   - ANR-01 OFF: [OffloadedStatsRepository]（Room・IOへ逃げる）が注入され、安全に完了する。
- *   - ANR-01 ON: [BlockingStatsRepository]（生SQLite・同期実行）が注入され、
- *     viewModelScope（= Main）で走って ANR を誘発する。
- *
- * [vaultKey] は [ANR-04][正版]。集中記録を復号する鍵庫の鍵を、統計表示とは別 launch で
- * 遅延・背面・キャッシュでロードする（[reload] 参照）。
+ * [vaultKey] は [ANR-04][正版]（[reload] 参照）。
  */
 class StatsViewModel(
     private val demoRepo: StatsRepository,
@@ -32,46 +26,26 @@ class StatsViewModel(
     private val vaultKey: SecureVaultKeyProvider,
 ) : ViewModel() {
 
-    // 初期値の時点で demoMode を反映しておく。[reload] を待つと、最初の1フレームだけ
-    // デモ用セクションが無い状態が描かれて、直後に生えてくる。
+    // 初期値の時点で demoMode を反映しておく（reload 待ちだと最初の1フレームだけセクションが欠ける）。
     private val _uiState = MutableStateFlow(StatsUiState(isDemoMode = isDemoMode()))
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
 
     /**
-     * 日別集計を読み直す。この ViewModel は Activity スコープで生き続けるため、
-     * init での一度きりの読み込みだと、タイマーで完了したセッションが
-     * タブを開き直しても反映されない（プロセス再起動まで見えない）。
-     * 画面側がタブに入るたびに呼ぶ。2回目以降は前回の表示を保ったまま差し替えるが、
-     * デモ側だけは「静かに」差し替えない: 数秒かかるので、黙って前回値を出したままだと
-     * 「もう読み終わった値」に見えてしまう。[StatsUiState.isDemoLoading] を立てて
-     * セクションの中身をスピナーに差し替える。実データ側は数ミリ秒で返るので、
-     * 2回目以降は立て直さない（カードがスピナーに置き換わって一瞬で戻るだけになる）。
-     * このフラグは launch の**外**で先に立てる（コルーチンの起動を待つと、
-     * 先に1フレーム描かれて古い集計が一瞬見えてしまう）。
+     * 日別集計を読み直す。ViewModel は Activity スコープで生きるため、init での一度きりの
+     * 読み込みだと新しいセッションがタブを開き直しても反映されない。画面側がタブに入るたびに呼ぶ。
      *
-     * demoMode ON のときは実データを先に流してからデモ側を読む。ただし**「先に流す」＝
-     * 「先に描かれる」ではない**:
-     *  - ANR-01 OFF（[demoRepo] も Room 経由＝中断点がある）: デモ側の読み込み中にメインが空くので、
-     *    実データのセクションが先に描かれ、あとからデモ側が埋まる。狙いどおり。
-     *  - ANR-01 ON（[demoRepo] が同期実行）: 下の `demoRepo.dailyStats()` は suspend せず
-     *    そのままメインで走りきる。`_uiState` に流してから次の行までに中断点が無く、
-     *    再コンポーズも描画もフレームコールバック経由なので、**フリーズが明けてから
-     *    両方まとめて描かれる**。実データだけが先に見えるわけではない。
+     * [StatsUiState.isDemoLoading] は launch の外で先に立てる（コルーチンの起動を待つと
+     * 先に1フレーム描かれて古い集計が一瞬見える）。
      *
-     * それでも先に流す順にしてあるのは、デモ側が何を返そうと実データの値が汚れないため。
-     * ANR 中でも実データを描かせたいなら、ここで `withFrameNanos` などにより
-     * 1フレーム分メインを明け渡す処理を挟む必要がある。
+     * 実データを先に流すが、ANR-01 ON では `demoRepo.dailyStats()` が suspend せずメインで
+     * 走りきるため中断点が無く、フリーズが明けてから両方まとめて描かれる点に注意。
      */
     fun reload() {
         val demoMode = isDemoMode()
         _uiState.value = _uiState.value.copy(isDemoMode = demoMode, isDemoLoading = demoMode)
 
-        // [ANR-04][正版] 集中記録を復号する鍵庫の鍵を、統計読み込みとは別の launch で
-        // 背面・キャッシュ・遅延ロードする。onCreate で同期に取る ANR-04（SecureVaultKeyBootLoader）
-        // と対照的に、実際に必要になった時点（この画面を開いたとき）でだけ読みにいき、
-        // 統計の描画をここで待たせない。
-        // ANR-04 が ON のときは onCreate 側が発火点なので、正版はここでは走らせない
-        // ＝同じトグルで ANR版（onCreate）と正版（ここ）が対になる。
+        // [ANR-04][正版] 鍵庫の鍵を別 launch で背面・キャッシュ・遅延ロードし、統計の描画を待たせない
+        // （onCreate で同期に取る ANR-04 と対照）。ANR-04 ON のときは onCreate 側が発火点なので走らせない。
         if (!DemoConfig.isOn(Anr.ANR_04)) {
             viewModelScope.launch {
                 vaultKey.ensureKeyLoaded()

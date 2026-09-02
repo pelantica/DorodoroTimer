@@ -10,9 +10,8 @@ data class FocusSessionEntity(
     val durationSeconds: Int,
     val completedAtEpochMs: Long,
     /**
-     * [ANR-01] デモ用シードの行なら true。実データ（タイマーで完了した本物のセッション）と
-     * 同じテーブルに同居させるための区別。シードの入れ直しは isDemo=1 だけを消すので、
-     * demoMode を行き来しても実データは二度と消えない。
+     * [ANR-01] デモ用シードの行なら true。シードの入れ直しは isDemo=1 だけを消すので、
+     * demoMode を行き来しても実データは消えない。
      */
     val isDemo: Boolean = false,
 )

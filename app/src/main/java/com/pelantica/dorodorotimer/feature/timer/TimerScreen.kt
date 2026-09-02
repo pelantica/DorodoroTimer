@@ -49,7 +49,7 @@ import org.koin.androidx.compose.koinViewModel
 private val RingSize = 240.dp
 private val RingStroke = 12.dp
 
-/** ピル型ボタンの内側余白。M3 既定より横に広げて、モックの形に寄せる。 */
+/** ピル型ボタンの内側余白。 */
 private val PillPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
 
 @Composable
@@ -146,7 +146,6 @@ private fun TimerContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 雨音は主導線ではないので、枠線も文字も一段退かせる。
         OutlinedButton(
             onClick = onToggleSound,
             shape = CircleShape,
@@ -167,7 +166,6 @@ private fun TimerContent(
 /** 「🍅 集中」／「☕ 休憩」のピル。いまどちらのフェーズかを一目で分かるようにする。 */
 @Composable
 private fun PhaseChip(phase: TimerPhase, modifier: Modifier = Modifier) {
-    // 絵文字は文字列側（strings.xml）に持たせている。Composable では地と文字色だけ決める。
     val label = when (phase) {
         TimerPhase.FOCUS -> stringResource(R.string.timer_phase_focus)
         TimerPhase.BREAK -> stringResource(R.string.timer_phase_break)

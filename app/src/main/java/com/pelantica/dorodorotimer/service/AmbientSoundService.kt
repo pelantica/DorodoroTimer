@@ -20,9 +20,7 @@ import com.pelantica.dorodorotimer.core.debug.DemoConfig
 
 /**
  * 雨音（環境音）をループ再生するフォアグラウンドService（mediaPlayback）。
- * res/raw/rain_loop が未配置の間は無音で動作する（FGS・通知・コールバックは確認できる）。
- * 音源を追加するときは res/raw/rain_loop.ogg を置くだけで再生される。
- * onCreate/onStartCommand/onDestroy の発火は Logcat(tag=AmbientFGS) で観察できる。
+ * res/raw/rain_loop.ogg が未配置の間は無音で動作する（FGS・通知の挙動は確認できる）。
  */
 class AmbientSoundService : Service() {
 
@@ -64,13 +62,8 @@ class AmbientSoundService : Service() {
 
     private fun startPlayback() {
         // [ANR-FGS] demoMode ON のとき、startForeground の**前**にメインで重い処理を挟んで
-        //  startForegroundService() からの猶予内に startForeground できなくする。
-        //  締切は**前面起動でも背面起動でも効く**（Android 17・API 37 エミュでの実測。観測環境と
-        //  内訳は FgsStartupWork.BLOCK_MILLIS の KDoc）。違うのは破ったときの見え方で、
-        //  背面はダイアログなしの無言 kill、前面は先に Service 実行 ANR のダイアログが出てから kill。
-        //  この事例の主経路は TimerAlarmReceiver（タイマー終了＝背面）からの自動起動。
-        //  OFF（正版）は下の startForeground を最初に呼ぶ従来どおりの正しい順序＝一切ブロックしない。
-        //  処方: startForeground を先に呼び、重い初期化はその後（または別スレッド）へ。
+        //  startForegroundService() からの猶予内に startForeground できなくする（詳細は FgsStartupWork）。
+        //  OFF（正版）は下の startForeground を最初に呼ぶ正しい順序＝一切ブロックしない。
         if (DemoConfig.isOn(Anr.ANR_FGS)) {
             FgsStartupWork.blockMainUntilDeadline()
         }
